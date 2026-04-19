@@ -1,0 +1,62 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --ps-bg:       #111110;
+  --ps-surface:  #1a1a18;
+  --ps-border:   rgba(255, 255, 255, 0.08);
+  --ps-teal:     #1D9E75;
+  --ps-teal-dim: rgba(29, 158, 117, 0.12);
+  --ps-text:     #d4d3ce;
+  --ps-muted:    #888780;
+  --ps-white:    #f0efea;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  background-color: var(--ps-bg);
+  color: var(--ps-text);
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+/* Textarea resize */
+textarea {
+  resize: none;
+}
+
+/* Focus ring */
+*:focus-visible {
+  outline: 1px solid var(--ps-teal);
+  outline-offset: 2px;
+}
+
+/* Progress indicator colors */
+.confidence-red    { color: #E24B4A; }
+.confidence-yellow { color: #EF9F27; }
+.confidence-green  { color: #1D9E75; }
+
+.confidence-bg-red    { background-color: rgba(226, 75, 74, 0.12); }
+.confidence-bg-yellow { background-color: rgba(239, 159, 39, 0.12); }
+.confidence-bg-green  { background-color: rgba(29, 158, 117, 0.12); }
