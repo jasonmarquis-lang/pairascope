@@ -30,7 +30,7 @@ export default function Logo({ size = 'md', showWordmark = true }: LogoProps) {
         {/* Main hull */}
         <ellipse cx="62" cy="42" rx="52" ry="18" fill="currentColor" />
         {/* Propeller blades */}
-        <ellipse cx="14" cy="34" rx="5" ry="10" rx="4" fill="currentColor" opacity="0.85" transform="rotate(-20 14 34)" />
+        <ellipse cx="14" cy="34" rx="4" ry="10" fill="currentColor" opacity="0.85" transform="rotate(-20 14 34)" />
         <ellipse cx="14" cy="50" rx="4" ry="10" fill="currentColor" opacity="0.85" transform="rotate(20 14 50)" />
         {/* Speed line */}
         <rect x="18" y="41" width="88" height="2" rx="1" fill="white" opacity="0.15" />
