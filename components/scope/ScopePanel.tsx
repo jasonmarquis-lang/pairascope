@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import AuthModal from '@/components/ui/AuthModal'
+import RFQReview from '@/components/rfq/RFQReview'
 import type { ProjectSnapshot, ConfidenceLevel } from '@/types'
 
 interface ScopePanelProps {
@@ -14,6 +15,7 @@ interface ScopePanelProps {
 export default function ScopePanel({ snapshot, conversationId }: ScopePanelProps) {
   const router = useRouter()
   const [showAuthModal, setShowAuthModal] = useState(false)
+  const [showRFQ,       setShowRFQ]       = useState(false)
   const [isBlurred,     setIsBlurred]     = useState(false)
   const [user,          setUser]          = useState<boolean | null>(null)
 
@@ -37,23 +39,79 @@ export default function ScopePanel({ snapshot, conversationId }: ScopePanelProps
     }
   }
 
+  const handleGenerateRFQ = () => {
+    if (!user) {
+      setShowAuthModal(true)
+      return
+    }
+    setShowRFQ(true)
+  }
+
   const handleAuthSuccess = () => {
     setShowAuthModal(false)
     setIsBlurred(false)
-    router.push(`/vendors?conversationId=${conversationId}`)
+    setShowRFQ(true)
+  }
+
+  // Build scope document from snapshot for RFQ
+  const buildScopeDocument = () => {
+    const lines: string[] = []
+    if (snapshot.aiSummary) {
+      lines.push('PROJECT OVERVIEW')
+      lines.push('────────────────')
+      lines.push(snapshot.aiSummary)
+      lines.push('')
+    }
+    lines.push('SCOPE DETAILS')
+    lines.push('────────────────')
+    if (snapshot.projectType)  lines.push(`Type: ${snapshot.projectType}`)
+    if (snapshot.material)     lines.push(`Material: ${snapshot.material}`)
+    if (snapshot.scale)        lines.push(`Scale: ${snapshot.scale}`)
+    if (snapshot.location)     lines.push(`Location: ${snapshot.location}`)
+    if (snapshot.services?.length) lines.push(`Services: ${snapshot.services.join(', ')}`)
+    if (snapshot.timeline)     lines.push(`Timeline: ${snapshot.timeline}`)
+    if (snapshot.budgetRange)  lines.push(`Budget Range: ${snapshot.budgetRange}`)
+    if (snapshot.finish)       lines.push(`Finish: ${snapshot.finish}`)
+    if (snapshot.siteConditions) lines.push(`Site Conditions: ${snapshot.siteConditions}`)
+    if (snapshot.structuralRequirements) lines.push(`Structural Requirements: ${snapshot.structuralRequirements}`)
+    if (snapshot.missingInfo?.length) {
+      lines.push('')
+      lines.push('OPEN QUESTIONS')
+      lines.push('────────────────')
+      snapshot.missingInfo.forEach((item) => lines.push(`• ${item}`))
+    }
+    lines.push('')
+    lines.push('REQUEST')
+    lines.push('────────────────')
+    lines.push('Please provide:')
+    lines.push('• A rough order of magnitude (ROM) price or proposal')
+    lines.push('• Estimated timeline from kickoff to completion')
+    lines.push('• Key assumptions and exclusions')
+    lines.push('• Any concerns or clarifying questions')
+    return lines.join('\n')
+  }
+
+  if (showRFQ) {
+    return (
+      <RFQReview
+        snapshot={snapshot}
+        scopeDocument={buildScopeDocument()}
+        conversationId={conversationId}
+        onClose={() => setShowRFQ(false)}
+      />
+    )
   }
 
   return (
     <>
       <div style={{
-        height:          '100%',
-        display:         'flex',
-        flexDirection:   'column',
+        height: '100%', display: 'flex', flexDirection: 'column',
         backgroundColor: 'var(--ps-bg)',
-        filter:          isBlurred ? 'blur(4px)' : 'none',
-        transition:      'filter 0.3s ease',
-        pointerEvents:   isBlurred ? 'none' : 'auto',
+        filter: isBlurred ? 'blur(4px)' : 'none',
+        transition: 'filter 0.3s ease',
+        pointerEvents: isBlurred ? 'none' : 'auto',
       }}>
+        {/* Header */}
         <div style={{ padding: '20px 20px 16px', borderBottom: '0.5px solid var(--ps-border)', flexShrink: 0 }}>
           <p style={{ fontSize: 11, color: 'var(--ps-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', margin: '0 0 6px' }}>
             Scope review
@@ -61,23 +119,33 @@ export default function ScopePanel({ snapshot, conversationId }: ScopePanelProps
           <ConfidenceDial level={snapshot.confidenceLevel} score={snapshot.confidenceScore} />
         </div>
 
+        {/* Fields */}
         <div style={{ flex: 1, overflowY: 'auto', padding: '16px 20px' }}>
           <SnapshotFields snapshot={snapshot} />
         </div>
 
+        {/* CTAs — shown when green */}
         {snapshot.confidenceLevel === 'green' && (
-          <div style={{ padding: '16px 20px', borderTop: '0.5px solid var(--ps-border)', flexShrink: 0 }}>
+          <div style={{ padding: '16px 20px', borderTop: '0.5px solid var(--ps-border)', flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 8 }}>
             <button
-              onClick={handleSeeVendors}
+              onClick={handleGenerateRFQ}
               style={{ width: '100%', padding: '12px 20px', backgroundColor: 'var(--ps-teal)', color: 'white', border: 'none', borderRadius: 10, fontSize: 14, fontWeight: 500, cursor: 'pointer', fontFamily: 'inherit', transition: 'opacity 0.15s ease' }}
               onMouseEnter={(e) => e.currentTarget.style.opacity = '0.85'}
               onMouseLeave={(e) => e.currentTarget.style.opacity = '1'}
             >
-              See recommended vendors →
+              Generate RFQ →
+            </button>
+            <button
+              onClick={handleSeeVendors}
+              style={{ width: '100%', padding: '10px 20px', backgroundColor: 'transparent', color: 'var(--ps-muted)', border: '0.5px solid var(--ps-border)', borderRadius: 10, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit', transition: 'all 0.15s ease' }}
+              onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--ps-text)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.2)' }}
+              onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--ps-muted)'; e.currentTarget.style.borderColor = 'var(--ps-border)' }}
+            >
+              Browse vendors
             </button>
             {!user && (
-              <p style={{ fontSize: 11, color: 'var(--ps-muted)', textAlign: 'center', marginTop: 8 }}>
-                You&apos;ll be asked to sign in to view vendor recommendations.
+              <p style={{ fontSize: 11, color: 'var(--ps-muted)', textAlign: 'center', margin: 0 }}>
+                Sign in to generate an RFQ and save your project.
               </p>
             )}
           </div>
@@ -88,16 +156,16 @@ export default function ScopePanel({ snapshot, conversationId }: ScopePanelProps
         isOpen={showAuthModal}
         onClose={() => { setShowAuthModal(false); setIsBlurred(false) }}
         onSuccess={handleAuthSuccess}
-        message="Create a free account to see your recommended vendors and save your project."
+        message="Sign in to generate an RFQ and send it to matched vendors."
       />
     </>
   )
 }
 
 const LEVEL_CONFIG: Record<ConfidenceLevel, { label: string; color: string; bg: string; description: string }> = {
-  red:    { label: 'Needs more info', color: '#E24B4A', bg: 'rgba(226,75,74,0.12)',    description: 'Keep describing your project — the more detail, the better.' },
-  yellow: { label: 'Getting there',   color: '#EF9F27', bg: 'rgba(239,159,39,0.12)',  description: 'Good progress. A few more details will sharpen the scope.' },
-  green:  { label: 'Vendor ready',    color: '#1D9E75', bg: 'rgba(29,158,117,0.12)',  description: 'Your project is well-defined. Ready to match with vendors.' },
+  red:    { label: 'Needs more info', color: '#E24B4A', bg: 'rgba(226,75,74,0.12)',   description: 'Keep describing your project — the more detail, the better.' },
+  yellow: { label: 'Getting there',   color: '#EF9F27', bg: 'rgba(239,159,39,0.12)', description: 'Good progress. A few more details will sharpen the scope.' },
+  green:  { label: 'Vendor ready',    color: '#1D9E75', bg: 'rgba(29,158,117,0.12)', description: 'Your project is well-defined. Ready to generate an RFQ.' },
 }
 
 function ConfidenceDial({ level, score }: { level: ConfidenceLevel; score: number }) {
