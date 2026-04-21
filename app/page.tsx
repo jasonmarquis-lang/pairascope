@@ -127,19 +127,19 @@ export default function HomePage() {
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
 
           {!started ? (
-            // Landing layout — hero centered in top 2/3, input in bottom 1/3
-            <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
-              {/* Top 2/3 — hero centered */}
-              <div style={{ flex: 2, display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 10, textAlign: 'center', padding: '0 24px' }}>
-                <h1 style={{ fontSize: '2rem', fontWeight: 400, color: 'var(--ps-white)', margin: 0, lineHeight: 1.2 }}>
-                  Scope. Pair. Create.
-                </h1>
-                <p style={{ fontSize: 16, color: 'var(--ps-muted)', margin: 0 }}>
-                  Fabrication, shipping, installation, and more.
-                </p>
-              </div>
-              {/* Bottom 1/3 — input */}
-              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', paddingBottom: 30 }}>
+            // Landing — hero + input grouped together, centered on screen
+            <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <div style={{ width: '100%', maxWidth: 800, padding: '0 24px', display: 'flex', flexDirection: 'column', gap: 32 }}>
+                {/* Hero text */}
+                <div style={{ textAlign: 'center' }}>
+                  <h1 style={{ fontSize: '2rem', fontWeight: 400, color: 'var(--ps-white)', margin: '0 0 10px', lineHeight: 1.2 }}>
+                    Scope. Pair. Create.
+                  </h1>
+                  <p style={{ fontSize: 16, color: 'var(--ps-muted)', margin: 0 }}>
+                    Fabrication, shipping, installation, and more.
+                  </p>
+                </div>
+                {/* Input directly below hero */}
                 <ChatInput
                   onSend={sendMessage}
                   onNewProject={handleNewProject}
@@ -150,7 +150,7 @@ export default function HomePage() {
               </div>
             </div>
           ) : (
-            // Chat layout — messages scroll, input pinned to bottom
+            // Chat — messages scroll, input pinned 30px from bottom
             <>
               <div style={{ flex: 1, overflowY: 'auto' }}>
                 <MessageList messages={messages} isLoading={isLoading} />
