@@ -124,54 +124,57 @@ export default function HomePage() {
     <>
       <Nav />
       <main style={{ display: 'flex', height: '100vh', paddingTop: 56, overflow: 'hidden' }}>
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', transition: 'all 0.4s ease', minWidth: 0 }}>
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
 
-          {/* Messages / Hero */}
-          <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
-            {!started ? (
-              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', paddingBottom: '8vh' }}>
-                <LandingHero />
+          {!started ? (
+            // Landing layout — hero centered in top 2/3, input in bottom 1/3
+            <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+              {/* Top 2/3 — hero centered */}
+              <div style={{ flex: 2, display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 10, textAlign: 'center', padding: '0 24px' }}>
+                <h1 style={{ fontSize: '2rem', fontWeight: 400, color: 'var(--ps-white)', margin: 0, lineHeight: 1.2 }}>
+                  Scope. Pair. Create.
+                </h1>
+                <p style={{ fontSize: 16, color: 'var(--ps-muted)', margin: 0 }}>
+                  Fabrication, shipping, installation, and more.
+                </p>
               </div>
-            ) : (
-              <MessageList messages={messages} isLoading={isLoading} />
-            )}
-          </div>
-
-          {/* Input — 30px from bottom when in chat */}
-          <div style={{ paddingBottom: started ? 30 : 0 }}>
-            <ChatInput
-              onSend={sendMessage}
-              onNewProject={handleNewProject}
-              isLoading={isLoading}
-              started={started}
-              placeholder={placeholder}
-            />
-          </div>
+              {/* Bottom 1/3 — input */}
+              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', paddingBottom: 30 }}>
+                <ChatInput
+                  onSend={sendMessage}
+                  onNewProject={handleNewProject}
+                  isLoading={isLoading}
+                  started={started}
+                  placeholder={placeholder}
+                />
+              </div>
+            </div>
+          ) : (
+            // Chat layout — messages scroll, input pinned to bottom
+            <>
+              <div style={{ flex: 1, overflowY: 'auto' }}>
+                <MessageList messages={messages} isLoading={isLoading} />
+              </div>
+              <div style={{ paddingBottom: 30 }}>
+                <ChatInput
+                  onSend={sendMessage}
+                  onNewProject={handleNewProject}
+                  isLoading={isLoading}
+                  started={started}
+                  placeholder={placeholder}
+                />
+              </div>
+            </>
+          )}
         </div>
 
         {/* Scope panel */}
         {showScope && snapshot && (
-          <div style={{
-            width: 400, borderLeft: '0.5px solid var(--ps-border)',
-            overflowY: 'auto', flexShrink: 0, animation: 'slideLeft 0.4s ease-out',
-          }}>
+          <div style={{ width: 400, borderLeft: '0.5px solid var(--ps-border)', overflowY: 'auto', flexShrink: 0, animation: 'slideLeft 0.4s ease-out' }}>
             <ScopePanel snapshot={snapshot} conversationId={conversationId} />
           </div>
         )}
       </main>
     </>
-  )
-}
-
-function LandingHero() {
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '0 24px 24px', gap: 10, textAlign: 'center' }}>
-      <h1 style={{ fontSize: '2rem', fontWeight: 400, color: 'var(--ps-white)', margin: 0, lineHeight: 1.2 }}>
-        Scope. Pair. Create.
-      </h1>
-      <p style={{ fontSize: 16, color: 'var(--ps-muted)', margin: 0 }}>
-        Fabrication, shipping, installation, and more.
-      </p>
-    </div>
   )
 }
