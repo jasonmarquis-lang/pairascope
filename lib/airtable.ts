@@ -34,6 +34,16 @@ const P = {
   convId:          'fldngbTEeVeb7SFBR',
 }
 
+// Helper — safely extract string from aiText or string field
+function str(val: unknown): string {
+  if (!val) return ''
+  if (typeof val === 'string') return val
+  if (typeof val === 'object' && val !== null && 'value' in val) {
+    return String((val as { value: unknown }).value ?? '')
+  }
+  return String(val)
+}
+
 export async function createProjectRecord(params: {
   inputText:      string
   snapshot:       ProjectSnapshot
@@ -52,30 +62,24 @@ export async function createProjectRecord(params: {
       [P.createdDate]:     today,
       [P.status]:          'New',
       [P.convId]:          conversationId,
-      [P.material]:        snapshot.material        || '',
-      [P.scale]:           snapshot.scale           || '',
-      [P.location]:        snapshot.location        || '',
-      [P.budgetRange]:     snapshot.budgetRange      || '',
-      [P.missingInfo]:     (snapshot.missingInfo    || []).join('\n'),
-      [P.aiSummary]:       snapshot.aiSummary        || '',
+      [P.material]:        snapshot.material     || '',
+      [P.scale]:           snapshot.scale        || '',
+      [P.location]:        snapshot.location     || '',
+      [P.budgetRange]:     snapshot.budgetRange  || '',
+      [P.missingInfo]:     (snapshot.missingInfo || []).join('\n'),
+      [P.aiSummary]:       snapshot.aiSummary    || '',
       [P.confidenceLevel]: snapshot.confidenceLevel?.toUpperCase() || 'RED',
     }
 
     if (artistName)  fields[P.artistName]  = artistName
     if (artistEmail) fields[P.artistEmail] = artistEmail
-
-    if (snapshot.services?.length) {
-      fields[P.services] = snapshot.services
-    }
-
-    if (snapshot.projectType) {
-      fields[P.projectType] = [snapshot.projectType]
-    }
+    if (snapshot.services?.length)  fields[P.services]    = snapshot.services
+    if (snapshot.projectType)       fields[P.projectType] = [snapshot.projectType]
 
     const record = await base(TABLES.PROJECTS).create(fields as Airtable.FieldSet)
     return record.getId()
   } catch (err) {
-    console.error('[Airtable] createProjectRecord failed:', err)
+    console.error('[Airtable] createProjectRecord failed:', JSON.stringify(err))
     return null
   }
 }
@@ -85,31 +89,27 @@ export async function getActiveVendors() {
     const records = await base(TABLES.VENDORS)
       .select({
         filterByFormula: '{Active} = TRUE()',
-        fields: [
-          'Vendor Name', 'Primary Services', 'Contact Name',
-          'Email', 'Phone', 'Website', 'Capabilities',
-          'Short Bio', 'Vendor Rating',
-        ],
+        fields: ['Vendor Name', 'Primary Services', 'Contact Name', 'Email', 'Phone', 'Website', 'Capabilities', 'Short Bio', 'Vendor Rating'],
       })
       .all()
 
     return records.map((r) => ({
       id:             r.getId(),
-      name:           r.get('Vendor Name')      as string,
+      name:           str(r.get('Vendor Name')),
       primaryService: ((r.get('Primary Services') as string[] | undefined) ?? [])[0] ?? '',
-      contactName:    r.get('Contact Name')     as string,
-      email:          r.get('Email')            as string,
-      phone:          r.get('Phone')            as string,
-      capabilities:   r.get('Capabilities')     as string,
-      shortBio:       r.get('Short Bio')        as string,
-      website:        r.get('Website')          as string,
-      rating:         r.get('Vendor Rating')    as number,
+      contactName:    str(r.get('Contact Name')),
+      email:          str(r.get('Email')),
+      phone:          str(r.get('Phone')),
+      capabilities:   str(r.get('Capabilities')),
+      shortBio:       str(r.get('Short Bio')),
+      website:        str(r.get('Website')),
+      rating:         r.get('Vendor Rating') as number ?? 0,
       active:         true,
       location:       '',
       materials:      '',
     }))
   } catch (err) {
-    console.error('[Airtable] getActiveVendors failed:', err)
+    console.error('[Airtable] getActiveVendors failed:', JSON.stringify(err))
     return []
   }
 }
@@ -121,28 +121,26 @@ export async function getAssignedVendors(conversationId: string) {
       .all()
 
     if (!projects.length) return []
-
     const assignedIds = projects[0].get('Assigned Vendors') as string[] | undefined
     if (!assignedIds?.length) return []
 
     const vendors = await Promise.all(assignedIds.map((id) => base(TABLES.VENDORS).find(id)))
-
     return vendors.map((r) => ({
       id:             r.getId(),
-      name:           r.get('Vendor Name')      as string,
+      name:           str(r.get('Vendor Name')),
       primaryService: ((r.get('Primary Services') as string[] | undefined) ?? [])[0] ?? '',
-      contactName:    r.get('Contact Name')     as string,
-      email:          r.get('Email')            as string,
-      capabilities:   r.get('Capabilities')     as string,
-      shortBio:       r.get('Short Bio')        as string,
-      website:        r.get('Website')          as string,
-      rating:         r.get('Vendor Rating')    as number,
+      contactName:    str(r.get('Contact Name')),
+      email:          str(r.get('Email')),
+      capabilities:   str(r.get('Capabilities')),
+      shortBio:       str(r.get('Short Bio')),
+      website:        str(r.get('Website')),
+      rating:         r.get('Vendor Rating') as number ?? 0,
       active:         true,
       location:       '',
       materials:      '',
     }))
   } catch (err) {
-    console.error('[Airtable] getAssignedVendors failed:', err)
+    console.error('[Airtable] getAssignedVendors failed:', JSON.stringify(err))
     return []
   }
 }
@@ -151,29 +149,31 @@ export async function getKnowledgeHubByService(serviceType: string) {
   try {
     const records = await base(TABLES.KNOWLEDGE_HUB)
       .select({
-        filterByFormula: `OR({Service Category} = "${serviceType}", {Service Category} = "General")`,
-        fields: ['Title', 'Service Category', 'Content'],
+        // Use field ID directly to avoid name mismatch
+        fields: ['Title', 'fldcpc1gPhPPcwU8t', 'fldoPhkOmNghs4B6w'],
       })
       .all()
 
-    return records.map((r) => ({
-      title:               r.get('Title')            as string,
-      serviceType:         r.get('Service Category') as string,
-      scopeLanguage:       r.get('Content')          as string,
-      standardAssumptions: '',
-      riskLanguage:        '',
-    }))
+    return records
+      .filter((r) => {
+        const cat = r.get('fldcpc1gPhPPcwU8t') as { name?: string } | string | undefined
+        const catName = typeof cat === 'object' && cat !== null ? cat.name : cat
+        return catName === serviceType || catName === 'General'
+      })
+      .map((r) => ({
+        title:               str(r.get('Title')),
+        serviceType,
+        scopeLanguage:       str(r.get('fldoPhkOmNghs4B6w')),
+        standardAssumptions: '',
+        riskLanguage:        '',
+      }))
   } catch (err) {
-    console.error('[Airtable] getKnowledgeHubByService failed:', err)
+    console.error('[Airtable] getKnowledgeHubByService failed:', JSON.stringify(err))
     return []
   }
 }
 
-export async function logError(
-  title: string,
-  detail: string,
-  severity: 'Critical' | 'High' | 'Low' = 'High'
-) {
+export async function logError(title: string, detail: string, severity: 'Critical' | 'High' | 'Low' = 'High') {
   try {
     await base(TABLES.ERROR_LOG).create({
       'Error Title':  title,
