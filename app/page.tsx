@@ -15,7 +15,22 @@ const PLACEHOLDERS = [
   'Tell me about your installation.',
 ]
 
+const SESSION_KEY = 'ps_conversation'
+
+function loadSession() {
+  try {
+    const raw = sessionStorage.getItem(SESSION_KEY)
+    if (raw) return JSON.parse(raw)
+  } catch { /* ignore */ }
+  return { messages: [], snapshot: null, conversationId: '', started: false }
+}
+
+function saveSession(data: { messages: Message[]; snapshot: ProjectSnapshot | null; conversationId: string; started: boolean }) {
+  try { sessionStorage.setItem(SESSION_KEY, JSON.stringify(data)) } catch { /* ignore */ }
+}
+
 export default function HomePage() {
+  const [hydrated,       setHydrated]       = useState(false)
   const [started,        setStarted]        = useState(false)
   const [messages,       setMessages]       = useState<Message[]>([])
   const [isLoading,      setIsLoading]      = useState(false)
@@ -25,6 +40,24 @@ export default function HomePage() {
   const [placeholder,    setPlaceholder]    = useState(PLACEHOLDERS[0])
   const [phaseIdx,       setPhaseIdx]       = useState(0)
   const abortRef = useRef<AbortController | null>(null)
+
+  // Hydrate from sessionStorage on mount
+  useEffect(() => {
+    const saved = loadSession()
+    if (saved.started && saved.messages?.length > 0) {
+      setStarted(saved.started)
+      setMessages(saved.messages)
+      setConversationId(saved.conversationId)
+      setSnapshot(saved.snapshot)
+      setShowScope(saved.snapshot?.confidenceLevel === 'yellow' || saved.snapshot?.confidenceLevel === 'green')
+    }
+    setHydrated(true)
+  }, [])
+
+  // Persist session on every change
+  useEffect(() => {
+    if (hydrated) saveSession({ messages, snapshot, conversationId, started })
+  }, [messages, snapshot, conversationId, started, hydrated])
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -61,12 +94,7 @@ export default function HomePage() {
       body.append('conversationId', conversationId)
       if (file) body.append('file', file)
 
-      const res = await fetch('/api/chat', {
-        method: 'POST',
-        body,
-        signal: abortRef.current.signal,
-      })
-
+      const res = await fetch('/api/chat', { method: 'POST', body, signal: abortRef.current.signal })
       if (!res.ok || !res.body) throw new Error(`API error: ${res.status}`)
 
       const assistantId = uuidv4()
@@ -89,9 +117,7 @@ export default function HomePage() {
             try {
               const parsed = JSON.parse(raw)
               if (parsed.type === 'text') {
-                setMessages((prev) =>
-                  prev.map((m) => m.id === assistantId ? { ...m, content: m.content + parsed.text } : m)
-                )
+                setMessages((prev) => prev.map((m) => m.id === assistantId ? { ...m, content: m.content + parsed.text } : m))
               }
               if (parsed.type === 'snapshot') setSnapshot(parsed.snapshot)
               if (parsed.type === 'conversationId') setConversationId(parsed.conversationId)
@@ -101,10 +127,7 @@ export default function HomePage() {
       }
     } catch (err: unknown) {
       if (err instanceof Error && err.name === 'AbortError') return
-      setMessages((prev) => [...prev, {
-        id: uuidv4(), role: 'assistant',
-        content: "Something went wrong on our end. Please refresh and try again in a moment.",
-      }])
+      setMessages((prev) => [...prev, { id: uuidv4(), role: 'assistant', content: "Something went wrong on our end. Please refresh and try again in a moment." }])
     } finally {
       setIsLoading(false)
     }
@@ -118,57 +141,38 @@ export default function HomePage() {
     setShowScope(false)
     setConversationId('')
     setIsLoading(false)
+    try { sessionStorage.removeItem(SESSION_KEY) } catch { /* ignore */ }
   }
+
+  if (!hydrated) return null
 
   return (
     <>
       <Nav />
       <main style={{ display: 'flex', height: '100vh', paddingTop: 56, overflow: 'hidden' }}>
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
-
           {!started ? (
-            // Landing — hero + input grouped together, centered on screen
             <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               <div style={{ width: '100%', maxWidth: 800, padding: '0 24px', display: 'flex', flexDirection: 'column', gap: 32 }}>
-                {/* Hero text */}
                 <div style={{ textAlign: 'center' }}>
-                  <h1 style={{ fontSize: '2rem', fontWeight: 400, color: 'var(--ps-white)', margin: '0 0 10px', lineHeight: 1.2 }}>
-                    Scope. Pair. Create.
-                  </h1>
-                  <p style={{ fontSize: 16, color: 'var(--ps-muted)', margin: 0 }}>
-                    Fabrication, shipping, installation, and more.
-                  </p>
+                  <h1 style={{ fontSize: '2rem', fontWeight: 400, color: 'var(--ps-white)', margin: '0 0 10px', lineHeight: 1.2 }}>Scope. Pair. Create.</h1>
+                  <p style={{ fontSize: 16, color: 'var(--ps-muted)', margin: 0 }}>Fabrication, shipping, installation, and more.</p>
                 </div>
-                {/* Input directly below hero */}
-                <ChatInput
-                  onSend={sendMessage}
-                  onNewProject={handleNewProject}
-                  isLoading={isLoading}
-                  started={started}
-                  placeholder={placeholder}
-                />
+                <ChatInput onSend={sendMessage} onNewProject={handleNewProject} isLoading={isLoading} started={started} placeholder={placeholder} />
               </div>
             </div>
           ) : (
-            // Chat — messages scroll, input pinned 30px from bottom
             <>
               <div style={{ flex: 1, overflowY: 'auto' }}>
                 <MessageList messages={messages} isLoading={isLoading} />
               </div>
               <div style={{ paddingBottom: 30 }}>
-                <ChatInput
-                  onSend={sendMessage}
-                  onNewProject={handleNewProject}
-                  isLoading={isLoading}
-                  started={started}
-                  placeholder={placeholder}
-                />
+                <ChatInput onSend={sendMessage} onNewProject={handleNewProject} isLoading={isLoading} started={started} placeholder={placeholder} />
               </div>
             </>
           )}
         </div>
 
-        {/* Scope panel */}
         {showScope && snapshot && (
           <div style={{ width: 400, borderLeft: '0.5px solid var(--ps-border)', overflowY: 'auto', flexShrink: 0, animation: 'slideLeft 0.4s ease-out' }}>
             <ScopePanel snapshot={snapshot} conversationId={conversationId} />
