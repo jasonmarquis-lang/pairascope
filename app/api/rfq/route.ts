@@ -17,85 +17,122 @@ export async function POST(req: NextRequest) {
     const projectId = `PS-${Date.now().toString(36).toUpperCase()}`
     const today     = new Date().toISOString().split('T')[0]
 
-    // Find or create Airtable project record
-    const existing = await base('Projects').select({ filterByFormula: `{Supabase Conversation ID} = "${conversationId}"`, maxRecords: 1 }).all()
-    let airtableProjectId: string | null = existing[0]?.getId() ?? null
+    // Find or create Airtable project record — use only plain text fields to avoid linked record type errors
+    let airtableProjectId: string | null = null
+    try {
+      const existing = await base('Projects')
+        .select({ filterByFormula: `{Supabase Conversation ID} = "${conversationId}"`, maxRecords: 1 })
+        .all()
+      airtableProjectId = existing[0]?.getId() ?? null
 
-    if (!airtableProjectId) {
-      const proj = await base('Projects').create({
-        'fldN7F3Y8YtbWtSzd': projectName || 'Art Project',
-        'fldngbTEeVeb7SFBR': conversationId,
-        'fldW3VUda1MLRODw7': today,
-        'fldLdWTW2uHq4fP0m': 'RFQ Sent',
+      if (!airtableProjectId) {
+        const proj = await base('Projects').create({
+          'fldN7F3Y8YtbWtSzd': projectName || 'Art Project',
+          'fldngbTEeVeb7SFBR': conversationId,
+          'fldW3VUda1MLRODw7': today,
+          'fldLdWTW2uHq4fP0m': 'RFQ Sent',
+        } as Airtable.FieldSet)
+        airtableProjectId = proj.getId()
+      } else {
+        await base('Projects').update(airtableProjectId, {
+          'fldLdWTW2uHq4fP0m': 'RFQ Sent',
+        } as Airtable.FieldSet)
+      }
+    } catch (projErr) {
+      console.error('[RFQ] Project record error:', projErr)
+      // Continue — don't fail the whole RFQ over an Airtable write error
+    }
+
+    // Create RFQ record — no linked record fields, just plain text
+    let rfqId = `rfq_${Date.now()}`
+    try {
+      const rfqRecord = await base('RFQs').create({
+        'RFQ Title':      `${projectName || 'Project'} \u2013 RFQ \u2013 ${today}`,
+        'Scope Document': scopeDocument,
+        'Date Issued':    today,
+        'Status':         'Sent',
       } as Airtable.FieldSet)
-      airtableProjectId = proj.getId()
-    } else {
-      await base('Projects').update(airtableProjectId, { 'fldLdWTW2uHq4fP0m': 'RFQ Sent' } as Airtable.FieldSet)
+      rfqId = rfqRecord.getId()
+    } catch (rfqErr) {
+      console.error('[RFQ] RFQ record error:', rfqErr)
     }
 
     // Fetch vendor records
     let vendors: { id: string; name: string; email: string }[] = []
     if (vendorIds?.length > 0) {
-      const records = await Promise.all(vendorIds.map((id: string) => base('Vendors').find(id)))
-      vendors = records.map((r) => ({ id: r.getId(), name: r.get('Vendor Name') as string, email: r.get('Email') as string })).filter((v) => v.email)
-    }
-
-    // Create RFQ record linked to project
-    const rfqFields: Airtable.FieldSet = {
-      'RFQ Title':      `${projectName || 'Project'} \u2013 RFQ \u2013 ${today}`,
-      'Scope Document': scopeDocument,
-      'Date Issued':    today,
-      'Status':         'Sent',
-    }
-    if (airtableProjectId) (rfqFields as Record<string, unknown>)['Linked Project'] = [{ id: airtableProjectId }] as unknown as string[]
-    const rfqRecord = await base('RFQs').create(rfqFields)
-    const rfqId = rfqRecord.getId()
-
-    // Link vendors to project
-    if (airtableProjectId && vendorIds?.length > 0) {
-      await base('Projects').update(airtableProjectId, { 'fldIHf9NMXMX6p0MQ': vendorIds.map((id: string) => ({ id })) as unknown as string[] as unknown as string[] } as Airtable.FieldSet)
+      try {
+        const records = await Promise.all(vendorIds.map((id: string) => base('Vendors').find(id)))
+        vendors = records
+          .map((r) => ({ id: r.getId(), name: r.get('Vendor Name') as string, email: r.get('Email') as string }))
+          .filter((v) => v.email)
+      } catch (vendorErr) {
+        console.error('[RFQ] Vendor fetch error:', vendorErr)
+      }
     }
 
     // Send emails
     const emailResults = await Promise.allSettled(
-      vendors.map((vendor) => sendRFQToVendor({ vendorEmail: vendor.email, vendorName: vendor.name, projectName: projectName || 'Art Project', projectId, scopeDocument, replyToRelay: `${projectId.toLowerCase()}@pairascope.com` }))
+      vendors.map((vendor) =>
+        sendRFQToVendor({
+          vendorEmail:   vendor.email,
+          vendorName:    vendor.name,
+          projectName:   projectName || 'Art Project',
+          projectId,
+          scopeDocument,
+          replyToRelay:  `${projectId.toLowerCase()}@pairascope.com`,
+        })
+      )
     )
     const sent   = emailResults.filter((r) => r.status === 'fulfilled').length
     const failed = emailResults.filter((r) => r.status === 'rejected').length
     if (failed > 0) await logError('RFQ email partial failure', `Sent: ${sent}, Failed: ${failed}`, 'High')
 
     // Save to Supabase
-    await supabaseAdmin.from('rfqs').upsert({
-      id:                rfqId,
-      conversation_id:   conversationId,
-      project_name:      projectName || 'Art Project',
-      project_id:        projectId,
-      scope_document:    scopeDocument,
-      status:            'Sent',
-      vendors_contacted: sent,
-      vendor_names:      (vendorNames || vendors.map((v) => v.name)).join(', '),
-      vendor_ids:        vendorIds ?? [],
-      created_at:        new Date().toISOString(),
-    })
+    try {
+      await supabaseAdmin.from('rfqs').upsert({
+        id:                rfqId,
+        conversation_id:   conversationId,
+        project_name:      projectName || 'Art Project',
+        project_id:        projectId,
+        scope_document:    scopeDocument,
+        status:            'Sent',
+        vendors_contacted: sent,
+        vendor_names:      (vendorNames || vendors.map((v) => v.name)).join(', '),
+        vendor_ids:        vendorIds ?? [],
+        created_at:        new Date().toISOString(),
+      })
+    } catch (sbErr) {
+      console.error('[RFQ] Supabase error:', sbErr)
+    }
 
     // Artist confirmation email
     try {
-      const { data: conv } = await supabaseAdmin.from('conversations').select('user_id').eq('id', conversationId).single()
+      const { data: conv } = await supabaseAdmin
+        .from('conversations').select('user_id').eq('id', conversationId).single()
       if (conv?.user_id) {
         const { data: artistData } = await supabaseAdmin.auth.admin.getUserById(conv.user_id)
         const artistEmail = artistData?.user?.email
         if (artistEmail) {
-          const vendorList = (vendorNames || vendors.map((v) => v.name)).map((n: string) => `\u2022 ${n}`).join('\n')
-          await pmClient.sendEmail({ From: FROM, To: artistEmail, Subject: `[Pairascope] Your RFQ has been sent \u2013 ${projectName || 'Art Project'}`, TextBody: `Hi,\n\nYour RFQ for "${projectName || 'Art Project'}" has been sent to ${sent} vendor${sent !== 1 ? 's' : ''}:\n\n${vendorList}\n\nReference: ${projectId}\n\nView your dashboard:\n${process.env.NEXT_PUBLIC_APP_URL}/rfq-hub\n\nBest,\nPairascope` })
+          const vendorList = (vendorNames || vendors.map((v) => v.name))
+            .map((n: string) => `\u2022 ${n}`).join('\n')
+          await pmClient.sendEmail({
+            From:     FROM,
+            To:       artistEmail,
+            Subject:  `[Pairascope] Your RFQ has been sent \u2013 ${projectName || 'Art Project'}`,
+            TextBody: `Hi,\n\nYour RFQ for "${projectName || 'Art Project'}" has been sent to ${sent} vendor${sent !== 1 ? 's' : ''}:\n\n${vendorList}\n\nReference: ${projectId}\n\nView your dashboard:\n${process.env.NEXT_PUBLIC_APP_URL}/rfq-hub\n\nBest,\nPairascope`,
+          })
         }
       }
-    } catch (emailErr) { console.error('[RFQ] Confirmation email failed:', emailErr) }
+    } catch (emailErr) {
+      console.error('[RFQ] Confirmation email failed:', emailErr)
+    }
 
     return NextResponse.json({ success: true, rfqId, projectId, vendorsSent: sent })
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err)
-    await logError('RFQ creation failed', msg, 'Critical')
-    await sendAdminErrorEmail('RFQ creation failed', msg)
+    console.error('[RFQ] Fatal error:', msg)
+    await logError('RFQ creation failed', msg, 'Critical').catch(() => {})
+    await sendAdminErrorEmail('RFQ creation failed', msg).catch(() => {})
     return NextResponse.json({ error: 'Failed to create RFQ' }, { status: 500 })
   }
 }
@@ -110,9 +147,14 @@ export async function GET(req: NextRequest) {
     }
     let query = supabaseAdmin.from('rfqs').select('*').order('created_at', { ascending: false })
     if (userId) {
-      const { data: convs } = await supabaseAdmin.from('conversations').select('id').eq('user_id', userId)
+      const { data: convs } = await supabaseAdmin
+        .from('conversations').select('id').eq('user_id', userId)
       const convIds = (convs ?? []).map((c) => c.id)
-      if (convIds.length > 0) { query = query.in('conversation_id', convIds) } else { return NextResponse.json({ rfqs: [] }) }
+      if (convIds.length > 0) {
+        query = query.in('conversation_id', convIds)
+      } else {
+        return NextResponse.json({ rfqs: [] })
+      }
     }
     const { data } = await query
     return NextResponse.json({ rfqs: data ?? [] })

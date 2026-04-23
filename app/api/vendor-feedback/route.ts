@@ -8,18 +8,19 @@ export async function POST(req: NextRequest) {
     const { vendorId, vendorName, action, reason, projectType } = await req.json()
     const today = new Date().toISOString()
 
+    // Use plain text fields only — no linked record fields to avoid type errors
     await base('Vendor Feedback').create({
       'Feedback Name': `${vendorName} \u2013 ${action} \u2013 ${new Date().toLocaleDateString()}`,
-      'Vendor':        [{ id: vendorId }] as unknown as string[],
       'Action':        action,
       'Reason':        reason || '',
       'Project Type':  projectType || '',
       'Date':          today,
+      'Submitted By':  vendorId,
     } as Airtable.FieldSet)
 
     return NextResponse.json({ success: true })
   } catch (err) {
-    console.error('[/api/vendor-feedback] Error:', err)
+    console.error('[/api/vendor-feedback] Error:', JSON.stringify(err))
     return NextResponse.json({ error: 'Failed' }, { status: 500 })
   }
 }
