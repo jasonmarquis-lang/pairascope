@@ -27,18 +27,6 @@ export default function ScopePanel({ snapshot, conversationId }: ScopePanelProps
     return () => subscription.unsubscribe()
   }, [])
 
-  const handleSeeVendors = () => {
-    if (user) {
-      router.push(`/vendors?conversationId=${conversationId}`)
-    } else {
-      setTimeout(() => {
-        setIsBlurred(true)
-        setShowAuthModal(true)
-      }, 5000)
-      router.push(`/vendors?conversationId=${conversationId}`)
-    }
-  }
-
   const handleGenerateRFQ = () => {
     if (!user) {
       setShowAuthModal(true)
@@ -47,13 +35,21 @@ export default function ScopePanel({ snapshot, conversationId }: ScopePanelProps
     setShowRFQ(true)
   }
 
+  const handleSeeVendors = () => {
+    if (user) {
+      router.push(`/vendors?conversationId=${conversationId}&fromScope=true`)
+    } else {
+      setTimeout(() => { setIsBlurred(true); setShowAuthModal(true) }, 5000)
+      router.push(`/vendors?conversationId=${conversationId}&fromScope=true`)
+    }
+  }
+
   const handleAuthSuccess = () => {
     setShowAuthModal(false)
     setIsBlurred(false)
     setShowRFQ(true)
   }
 
-  // Build scope document from snapshot for RFQ
   const buildScopeDocument = () => {
     const lines: string[] = []
     if (snapshot.aiSummary) {
@@ -111,7 +107,6 @@ export default function ScopePanel({ snapshot, conversationId }: ScopePanelProps
         transition: 'filter 0.3s ease',
         pointerEvents: isBlurred ? 'none' : 'auto',
       }}>
-        {/* Header */}
         <div style={{ padding: '20px 20px 16px', borderBottom: '0.5px solid var(--ps-border)', flexShrink: 0 }}>
           <p style={{ fontSize: 11, color: 'var(--ps-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', margin: '0 0 6px' }}>
             Scope review
@@ -119,12 +114,10 @@ export default function ScopePanel({ snapshot, conversationId }: ScopePanelProps
           <ConfidenceDial level={snapshot.confidenceLevel} score={snapshot.confidenceScore} />
         </div>
 
-        {/* Fields */}
         <div style={{ flex: 1, overflowY: 'auto', padding: '16px 20px' }}>
           <SnapshotFields snapshot={snapshot} />
         </div>
 
-        {/* CTAs — shown when green */}
         {snapshot.confidenceLevel === 'green' && (
           <div style={{ padding: '16px 20px', borderTop: '0.5px solid var(--ps-border)', flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 8 }}>
             <button
