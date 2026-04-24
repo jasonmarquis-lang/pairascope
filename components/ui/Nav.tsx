@@ -25,16 +25,7 @@ export default function Nav() {
     supabase.auth.getSession().then(({ data }) => setUser(data.session?.user ?? null))
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setUser(session?.user ?? null)
-      // If signing in, check if vendor and redirect
-      if (_event === 'SIGNED_IN' && session?.user) {
-        fetch('/api/bids?vendorId=' + session.user.id, {
-          headers: { 'Authorization': 'Bearer ' + session.access_token },
-        }).then(r => r.json()).then(data => {
-          if (data.rfqs && data.rfqs.length > 0) {
-            window.location.href = '/vendor'
-          }
-        }).catch(() => {})
-      }
+
     })
     return () => subscription.unsubscribe()
   }, [])
