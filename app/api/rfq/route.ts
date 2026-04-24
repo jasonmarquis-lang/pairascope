@@ -17,7 +17,7 @@ export async function POST(req: NextRequest) {
     const projectId = `PS-${Date.now().toString(36).toUpperCase()}`
     const today     = new Date().toISOString().split('T')[0]
 
-    // Find or create Airtable project record — use only plain text fields to avoid linked record type errors
+    // Find or create Airtable project record
     let airtableProjectId: string | null = null
     try {
       const existing = await base('Projects')
@@ -39,11 +39,10 @@ export async function POST(req: NextRequest) {
         } as Airtable.FieldSet)
       }
     } catch (projErr) {
-      console.error('[RFQ] Project record error:', projErr)
-      // Continue — don't fail the whole RFQ over an Airtable write error
+      console.error('[RFQ] Project record error:', JSON.stringify(projErr))
     }
 
-    // Create RFQ record — no linked record fields, just plain text
+    // Create RFQ record
     let rfqId = `rfq_${Date.now()}`
     try {
       const rfqRecord = await base('RFQs').create({
@@ -54,10 +53,10 @@ export async function POST(req: NextRequest) {
       } as Airtable.FieldSet)
       rfqId = rfqRecord.getId()
     } catch (rfqErr) {
-      console.error('[RFQ] RFQ record error:', rfqErr)
+      console.error('[RFQ] RFQ record error:', JSON.stringify(rfqErr))
     }
 
-    // Fetch vendor records
+    // Fetch vendors
     let vendors: { id: string; name: string; email: string }[] = []
     if (vendorIds?.length > 0) {
       try {
@@ -66,7 +65,7 @@ export async function POST(req: NextRequest) {
           .map((r) => ({ id: r.getId(), name: r.get('Vendor Name') as string, email: r.get('Email') as string }))
           .filter((v) => v.email)
       } catch (vendorErr) {
-        console.error('[RFQ] Vendor fetch error:', vendorErr)
+        console.error('[RFQ] Vendor fetch error:', JSON.stringify(vendorErr))
       }
     }
 
@@ -85,7 +84,7 @@ export async function POST(req: NextRequest) {
     )
     const sent   = emailResults.filter((r) => r.status === 'fulfilled').length
     const failed = emailResults.filter((r) => r.status === 'rejected').length
-    if (failed > 0) await logError('RFQ email partial failure', `Sent: ${sent}, Failed: ${failed}`, 'High')
+    if (failed > 0) await logError('RFQ email partial failure', `Sent: ${sent}, Failed: ${failed}`, 'High').catch(() => {})
 
     // Save to Supabase
     try {
@@ -102,7 +101,7 @@ export async function POST(req: NextRequest) {
         created_at:        new Date().toISOString(),
       })
     } catch (sbErr) {
-      console.error('[RFQ] Supabase error:', sbErr)
+      console.error('[RFQ] Supabase error:', JSON.stringify(sbErr))
     }
 
     // Artist confirmation email
