@@ -26,9 +26,13 @@ export default function VendorPage() {
       const { data: sessionData } = await supabase.auth.getSession()
       if (!sessionData.session) { router.push('/'); return }
 
-      const userId = sessionData.session.user.id
+      const userId    = sessionData.session.user.id
+      const token     = sessionData.session.access_token
+
       try {
-        const res  = await fetch('/api/bids?vendorId=' + userId)
+        const res  = await fetch('/api/bids?vendorId=' + userId, {
+          headers: { 'Authorization': 'Bearer ' + token },
+        })
         const data = await res.json()
         setRfqs(data.rfqs ?? [])
       } catch {

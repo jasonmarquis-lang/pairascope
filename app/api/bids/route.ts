@@ -8,36 +8,69 @@ const pmClient  = new postmark.ServerClient(process.env.POSTMARK_API_KEY ?? 'POS
 const FROM      = process.env.POSTMARK_FROM_EMAIL ?? 'create@pairascope.com'
 const ADMIN     = process.env.ADMIN_EMAIL ?? 'jasonmarquis@gmail.com'
 
+async function getVendorByUser(userId: string, userEmail: string) {
+  // First check Supabase vendors table
+  const { data: vendorRow } = await supabaseAdmin
+    .from('vendors')
+    .select('*')
+    .eq('user_id', userId)
+    .single()
+
+  if (vendorRow) return vendorRow
+
+  // If not found by user_id, try email match and link the account
+  const { data: vendorByEmail } = await supabaseAdmin
+    .from('vendors')
+    .select('*')
+    .eq('email', userEmail)
+    .single()
+
+  if (vendorByEmail) {
+    // Link this Supabase user to the vendor record
+    await supabaseAdmin
+      .from('vendors')
+      .update({ user_id: userId })
+      .eq('email', userEmail)
+    return { ...vendorByEmail, user_id: userId }
+  }
+
+  // Create a new vendor record for this user
+  const { data: newVendor } = await supabaseAdmin
+    .from('vendors')
+    .insert({ user_id: userId, email: userEmail })
+    .select()
+    .single()
+
+  return newVendor
+}
+
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url)
     const rfqId    = searchParams.get('rfqId')
     const vendorId = searchParams.get('vendorId')
 
+    // Get auth user
+    const authHeader = req.headers.get('authorization')
+    let userId: string | null = null
+    let userEmail: string | null = null
+    if (authHeader?.startsWith('Bearer ')) {
+      const { data } = await supabaseAdmin.auth.getUser(authHeader.slice(7))
+      userId    = data.user?.id ?? null
+      userEmail = data.user?.email ?? null
+    }
+
     if (rfqId) {
-      // Single RFQ detail + existing bid for this vendor
-      const authHeader = req.headers.get('authorization')
-      let currentVendorId: string | null = null
-      if (authHeader?.startsWith('Bearer ')) {
-        const { data } = await supabaseAdmin.auth.getUser(authHeader.slice(7))
-        currentVendorId = data.user?.id ?? null
-      }
+      // Single RFQ detail + existing bid
+      const { data: rfq } = await supabaseAdmin.from('rfqs').select('*').eq('id', rfqId).single()
 
-      // Get RFQ from Supabase
-      const { data: rfq } = await supabaseAdmin
-        .from('rfqs')
-        .select('*')
-        .eq('id', rfqId)
-        .single()
-
-      // Get existing bid if any
       let bid = null
-      if (currentVendorId) {
+      if (userId) {
         const { data: bidData } = await supabaseAdmin
           .from('bids')
           .select('*')
           .eq('rfq_id', rfqId)
-          .eq('vendor_id', currentVendorId)
+          .eq('vendor_id', userId)
           .single()
         bid = bidData
       }
@@ -45,28 +78,49 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ rfq, bid })
     }
 
-    if (vendorId) {
-      // All RFQs for this vendor — look up by vendor_ids array
-      const { data: rfqs } = await supabaseAdmin
+    if (vendorId && userId && userEmail) {
+      // Get vendor record to find their Airtable ID
+      const vendor = await getVendorByUser(userId, userEmail)
+      const airtableId = vendor?.airtable_id
+
+      // Find RFQs that include this vendor — match by Supabase user_id OR Airtable ID
+      let rfqList: Record<string, unknown>[] = []
+
+      // Try matching by Supabase user_id in vendor_ids array
+      const { data: rfqsByUserId } = await supabaseAdmin
         .from('rfqs')
         .select('*')
-        .contains('vendor_ids', [vendorId])
+        .contains('vendor_ids', [userId])
         .order('created_at', { ascending: false })
 
-      // Get all bids for this vendor
-      const { data: bids } = await supabaseAdmin
-        .from('bids')
-        .select('rfq_id')
-        .eq('vendor_id', vendorId)
+      rfqList = rfqsByUserId ?? []
 
-      const submittedRfqIds = new Set((bids ?? []).map((b) => b.rfq_id))
+      // Also try matching by Airtable ID if available
+      if (airtableId && rfqList.length === 0) {
+        const { data: rfqsByAirtableId } = await supabaseAdmin
+          .from('rfqs')
+          .select('*')
+          .contains('vendor_ids', [airtableId])
+          .order('created_at', { ascending: false })
+        rfqList = rfqsByAirtableId ?? []
+      }
 
-      const rfqsWithBidStatus = (rfqs ?? []).map((rfq) => ({
-        ...rfq,
-        bid_submitted: submittedRfqIds.has(rfq.id),
-      }))
+      // Also try matching by vendor name in vendor_names
+      if (rfqList.length === 0 && vendor?.name) {
+        const { data: rfqsByName } = await supabaseAdmin
+          .from('rfqs')
+          .select('*')
+          .ilike('vendor_names', `%${vendor.name}%`)
+          .order('created_at', { ascending: false })
+        rfqList = rfqsByName ?? []
+      }
 
-      return NextResponse.json({ rfqs: rfqsWithBidStatus })
+      // Get submitted bids
+      const { data: bids } = await supabaseAdmin.from('bids').select('rfq_id').eq('vendor_id', userId)
+      const submittedIds = new Set((bids ?? []).map((b) => b.rfq_id))
+
+      const rfqsWithStatus = rfqList.map((rfq) => ({ ...rfq, bid_submitted: submittedIds.has(rfq.id as string) }))
+      return NextResponse.json({ rfqs: rfqsWithStatus })
     }
 
     return NextResponse.json({ rfqs: [] })
@@ -79,85 +133,64 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     const authHeader = req.headers.get('authorization')
-    if (!authHeader?.startsWith('Bearer ')) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
+    if (!authHeader?.startsWith('Bearer ')) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
     const { data: userData } = await supabaseAdmin.auth.getUser(authHeader.slice(7))
-    const vendorId   = userData.user?.id
-    const vendorEmail = userData.user?.email
-    if (!vendorId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    const userId    = userData.user?.id
+    const userEmail = userData.user?.email
+    if (!userId || !userEmail) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
     const { rfqId, priceLow, priceHigh, timeline, assumptions, notes } = await req.json()
     if (!rfqId || !timeline) return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
 
-    // Get vendor name from Airtable
-    let vendorName = vendorEmail ?? 'Vendor'
-    try {
-      const vendors = await base('Vendors')
-        .select({ filterByFormula: `{Email} = "${vendorEmail}"`, maxRecords: 1, fields: ['Vendor Name'] })
-        .all()
-      if (vendors[0]) vendorName = vendors[0].get('Vendor Name') as string || vendorName
-    } catch { /* use email as fallback */ }
+    // Get or create vendor record
+    const vendor = await getVendorByUser(userId, userEmail)
+    const vendorName = vendor?.name || userEmail
 
-    // Get RFQ details
+    // Get RFQ
     const { data: rfq } = await supabaseAdmin.from('rfqs').select('*').eq('id', rfqId).single()
 
-    // Save bid to Supabase
+    // Save bid
     const { data: bid, error: bidError } = await supabaseAdmin
       .from('bids')
-      .upsert({
-        rfq_id:      rfqId,
-        vendor_id:   vendorId,
-        vendor_name: vendorName,
-        price_low:   priceLow ?? null,
-        price_high:  priceHigh ?? null,
-        timeline,
-        assumptions: assumptions || null,
-        notes:       notes || null,
-        status:      'Submitted',
-      }, { onConflict: 'rfq_id,vendor_id' })
+      .upsert({ rfq_id: rfqId, vendor_id: userId, vendor_name: vendorName, price_low: priceLow ?? null, price_high: priceHigh ?? null, timeline, assumptions: assumptions || null, notes: notes || null, status: 'Submitted' }, { onConflict: 'rfq_id,vendor_id' })
       .select()
       .single()
 
     if (bidError) throw bidError
 
-    // Save to Airtable Responses table
+    // Save to Airtable
     try {
       await base('Responses').create({
-        'RFQ ID':       rfqId,
-        'Vendor Name':  vendorName,
-        'Price Low':    priceLow ?? 0,
-        'Price High':   priceHigh ?? 0,
-        'Timeline':     timeline,
-        'Assumptions':  assumptions || '',
-        'Notes':        notes || '',
-        'Status':       'Submitted',
+        'RFQ ID':      rfqId,
+        'Vendor Name': vendorName,
+        'Price Low':   priceLow ?? 0,
+        'Price High':  priceHigh ?? 0,
+        'Timeline':    timeline,
+        'Assumptions': assumptions || '',
+        'Notes':       notes || '',
+        'Status':      'Submitted',
       } as Airtable.FieldSet)
     } catch (airtableErr) {
       console.error('[/api/bids] Airtable error:', airtableErr)
     }
 
-    // Update vendor status in RFQ record
+    // Update vendor status in RFQ
     try {
-      const currentStatuses = rfq?.vendor_statuses ?? {}
-      const updatedStatuses = { ...currentStatuses, [vendorName]: 'Responded' }
-      await supabaseAdmin.from('rfqs').update({ vendor_statuses: updatedStatuses }).eq('id', rfqId)
+      const currentStatuses = (rfq as Record<string, unknown>)?.vendor_statuses as Record<string, string> ?? {}
+      await supabaseAdmin.from('rfqs').update({ vendor_statuses: { ...currentStatuses, [vendorName]: 'Responded' } }).eq('id', rfqId)
     } catch (statusErr) {
       console.error('[/api/bids] Status update error:', statusErr)
     }
 
-    // Notify artist via email
+    // Notify artist
     try {
-      const priceText = (priceLow && priceHigh)
-        ? `$${Number(priceLow).toLocaleString()} \u2013 $${Number(priceHigh).toLocaleString()}`
-        : 'Not specified'
-
+      const priceText = (priceLow && priceHigh) ? `$${Number(priceLow).toLocaleString()} \u2013 $${Number(priceHigh).toLocaleString()}` : 'Not specified'
       await pmClient.sendEmail({
         From:    FROM,
         To:      ADMIN,
-        Subject: `[Pairascope] New estimate received \u2013 ${rfq?.project_name || 'Your project'}`,
-        TextBody: `Hi,\n\n${vendorName} has submitted an estimate for your project "${rfq?.project_name || 'Art Project'}".\n\nESTIMATE DETAILS\n\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\nVendor: ${vendorName}\nPrice Range: ${priceText}\nTimeline: ${timeline}${assumptions ? '\n\nAssumptions:\n' + assumptions : ''}${notes ? '\n\nNotes:\n' + notes : ''}\n\nView your RFQ dashboard:\n${process.env.NEXT_PUBLIC_APP_URL}/rfq-hub\n\nBest,\nPairascope`,
+        Subject: `[Pairascope] New estimate received \u2013 ${(rfq as Record<string, unknown>)?.project_name || 'Your project'}`,
+        TextBody: `Hi,\n\n${vendorName} has submitted an estimate for "${(rfq as Record<string, unknown>)?.project_name || 'Art Project'}".\n\nVendor: ${vendorName}\nPrice Range: ${priceText}\nTimeline: ${timeline}${assumptions ? '\n\nAssumptions:\n' + assumptions : ''}${notes ? '\n\nNotes:\n' + notes : ''}\n\nView your dashboard:\n${process.env.NEXT_PUBLIC_APP_URL}/rfq-hub\n\nBest,\nPairascope`,
       })
     } catch (emailErr) {
       console.error('[/api/bids] Notification email error:', emailErr)
