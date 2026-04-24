@@ -20,16 +20,16 @@ interface RFQRecord {
 }
 
 const STATUS_STYLES: Record<string, { color: string; bg: string }> = {
-  'Draft':            { color: 'var(--ps-muted)', bg: 'rgba(136,135,128,0.1)'  },
-  'Sent':             { color: '#EF9F27',          bg: 'rgba(239,159,39,0.1)'   },
-  'Estimates Received': { color: '#1D9E75',        bg: 'rgba(29,158,117,0.1)'  },
-  'Closed':           { color: 'var(--ps-muted)', bg: 'rgba(136,135,128,0.08)' },
+  'Draft':              { color: 'var(--ps-muted)', bg: 'rgba(136,135,128,0.1)'  },
+  'Sent':               { color: '#EF9F27',          bg: 'rgba(239,159,39,0.1)'   },
+  'Estimates Received': { color: '#1D9E75',           bg: 'rgba(29,158,117,0.1)'  },
+  'Closed':             { color: 'var(--ps-muted)', bg: 'rgba(136,135,128,0.08)' },
 }
 
 const VENDOR_STATUS_STYLES: Record<string, { color: string; bg: string }> = {
-  'Pending':   { color: '#EF9F27', bg: 'rgba(239,159,39,0.08)'   },
-  'Responded': { color: '#1D9E75', bg: 'rgba(29,158,117,0.08)'   },
-  'Declined':  { color: '#E24B4A', bg: 'rgba(226,75,74,0.08)'    },
+  'Pending':   { color: '#EF9F27', bg: 'rgba(239,159,39,0.08)'  },
+  'Responded': { color: '#1D9E75', bg: 'rgba(29,158,117,0.08)'  },
+  'Declined':  { color: '#E24B4A', bg: 'rgba(226,75,74,0.08)'   },
 }
 
 export default function RFQHubPage() {
@@ -40,15 +40,34 @@ export default function RFQHubPage() {
 
   useEffect(() => {
     const load = async () => {
-      const { data: session } = await supabase.auth.getSession()
-      if (!session.session) { router.push('/'); return }
+      const { data: sessionData } = await supabase.auth.getSession()
+      if (!sessionData.session) { router.push('/'); return }
 
       try {
+        const token = sessionData.session.access_token
+
+        // First try: get RFQs linked to user conversations
         const res  = await fetch('/api/rfq', {
-          headers: { authorization: `Bearer ${session.session.access_token}` },
+          headers: { 'Authorization': 'Bearer ' + token },
         })
         const data = await res.json()
-        setRfqs(data.rfqs ?? [])
+        let rfqList: RFQRecord[] = data.rfqs ?? []
+
+        // If empty, fall back to conversation ID from sessionStorage
+        if (rfqList.length === 0) {
+          try {
+            const raw     = sessionStorage.getItem('ps_conversation')
+            const parsed  = raw ? JSON.parse(raw) : null
+            const convId  = parsed?.conversationId
+            if (convId) {
+              const res2  = await fetch('/api/rfq?conversationId=' + convId)
+              const data2 = await res2.json()
+              rfqList = data2.rfqs ?? []
+            }
+          } catch { /* ignore */ }
+        }
+
+        setRfqs(rfqList)
       } catch {
         setError('Could not load your RFQs. Please try again.')
       } finally {
@@ -64,20 +83,15 @@ export default function RFQHubPage() {
 
   const handleContinue = (rfq: RFQRecord) => {
     try {
-      const existing = sessionStorage.getItem('ps_conversation')
-      const parsed   = existing ? JSON.parse(existing) : {}
-      // Only restore if it matches this conversation
-      if (parsed.conversationId !== rfq.conversation_id) {
-        sessionStorage.setItem('ps_conversation', JSON.stringify({
-          conversationId: rfq.conversation_id,
-          messages:       [],
-          snapshot:       null,
-          started:        false,
-          restoreId:      rfq.conversation_id,
-        }))
-      }
+      sessionStorage.setItem('ps_conversation', JSON.stringify({
+        conversationId: rfq.conversation_id,
+        messages:       [],
+        snapshot:       null,
+        started:        false,
+        restoreId:      rfq.conversation_id,
+      }))
     } catch { /* ignore */ }
-    router.push(`/?conversationId=${rfq.conversation_id}`)
+    router.push('/?conversationId=' + rfq.conversation_id)
   }
 
   return (
@@ -88,17 +102,14 @@ export default function RFQHubPage() {
 
           <div style={{ marginBottom: 36 }}>
             <h1 style={{ fontSize: '1.75rem', fontWeight: 400, color: 'var(--ps-white)', margin: '0 0 8px' }}>My RFQs</h1>
-            <p style={{ fontSize: 15, color: 'var(--ps-muted)', margin: 0 }}>
-              Track your vendor outreach and proposal status.
-            </p>
+            <p style={{ fontSize: 15, color: 'var(--ps-muted)', margin: 0 }}>Track your vendor outreach and proposal status.</p>
           </div>
 
-          {/* Stats */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 12, marginBottom: 32 }}>
             {[
-              { label: 'Total RFQs',           value: total    },
-              { label: 'Awaiting responses',    value: sent     },
-              { label: 'Estimates received',    value: received },
+              { label: 'Total RFQs',        value: total    },
+              { label: 'Awaiting responses', value: sent     },
+              { label: 'Estimates received', value: received },
             ].map(({ label, value }) => (
               <div key={label} style={{ backgroundColor: 'var(--ps-surface)', border: '0.5px solid var(--ps-border)', borderRadius: 10, padding: '16px 20px' }}>
                 <p style={{ fontSize: 11, color: 'var(--ps-muted)', textTransform: 'uppercase', letterSpacing: '0.07em', margin: '0 0 6px' }}>{label}</p>
@@ -136,10 +147,8 @@ export default function RFQHubPage() {
 
 function RFQRow({ rfq, onContinue }: { rfq: RFQRecord; onContinue: () => void }) {
   const [expanded, setExpanded] = useState(false)
-  const style = STATUS_STYLES[rfq.status] ?? STATUS_STYLES['Draft']
-  const date  = new Date(rfq.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
-
-  // Parse vendor names into array
+  const style     = STATUS_STYLES[rfq.status] ?? STATUS_STYLES['Draft']
+  const date      = new Date(rfq.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
   const vendorList = rfq.vendor_names
     ? rfq.vendor_names.split(',').map((v) => v.trim()).filter(Boolean)
     : []
@@ -147,11 +156,8 @@ function RFQRow({ rfq, onContinue }: { rfq: RFQRecord; onContinue: () => void })
   return (
     <div style={{ backgroundColor: 'var(--ps-surface)', border: '0.5px solid var(--ps-border)', borderRadius: 10, overflow: 'hidden' }}>
 
-      {/* Row header */}
-      <div
-        onClick={() => setExpanded((e) => !e)}
-        style={{ padding: '16px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer' }}
-      >
+      <div onClick={() => setExpanded((e) => !e)}
+        style={{ padding: '16px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0 }}>
           <span style={{ fontSize: 11, fontWeight: 500, color: style.color, backgroundColor: style.bg, padding: '3px 9px', borderRadius: 20, flexShrink: 0 }}>
             {rfq.status}
@@ -161,20 +167,16 @@ function RFQRow({ rfq, onContinue }: { rfq: RFQRecord; onContinue: () => void })
           </span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 16, flexShrink: 0 }}>
-          <span style={{ fontSize: 12, color: 'var(--ps-muted)' }}>
-            {rfq.vendors_contacted} vendor{rfq.vendors_contacted !== 1 ? 's' : ''}
-          </span>
+          <span style={{ fontSize: 12, color: 'var(--ps-muted)' }}>{rfq.vendors_contacted} vendor{rfq.vendors_contacted !== 1 ? 's' : ''}</span>
           <span style={{ fontSize: 12, color: 'var(--ps-muted)' }}>{date}</span>
           <span style={{ fontSize: 11, color: 'var(--ps-muted)', fontFamily: 'monospace' }}>{rfq.project_id}</span>
           <span style={{ color: 'var(--ps-muted)', fontSize: 12 }}>{expanded ? '▴' : '▾'}</span>
         </div>
       </div>
 
-      {/* Expanded content */}
       {expanded && (
         <div style={{ borderTop: '0.5px solid var(--ps-border)' }}>
 
-          {/* Vendor status list */}
           {vendorList.length > 0 && (
             <div style={{ padding: '16px 20px', borderBottom: '0.5px solid var(--ps-border)' }}>
               <p style={{ fontSize: 11, color: 'var(--ps-muted)', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 10 }}>
@@ -197,23 +199,13 @@ function RFQRow({ rfq, onContinue }: { rfq: RFQRecord; onContinue: () => void })
             </div>
           )}
 
-          {/* Scope document */}
           <div style={{ padding: '16px 20px', borderBottom: '0.5px solid var(--ps-border)' }}>
-            <p style={{ fontSize: 11, color: 'var(--ps-muted)', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 10 }}>
-              Scope document
-            </p>
-            <pre style={{
-              fontSize: 12, color: 'var(--ps-text)', lineHeight: 1.7,
-              whiteSpace: 'pre-wrap', fontFamily: 'inherit', margin: 0,
-              backgroundColor: 'var(--ps-bg)', padding: '12px 14px',
-              borderRadius: 8, border: '0.5px solid var(--ps-border)',
-              maxHeight: 300, overflowY: 'auto',
-            }}>
+            <p style={{ fontSize: 11, color: 'var(--ps-muted)', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 10 }}>Scope document</p>
+            <pre style={{ fontSize: 12, color: 'var(--ps-text)', lineHeight: 1.7, whiteSpace: 'pre-wrap', fontFamily: 'inherit', margin: 0, backgroundColor: 'var(--ps-bg)', padding: '12px 14px', borderRadius: 8, border: '0.5px solid var(--ps-border)', maxHeight: 300, overflowY: 'auto' }}>
               {rfq.scope_document || 'No scope document available.'}
             </pre>
           </div>
 
-          {/* Footer actions */}
           <div style={{ padding: '12px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
             <div style={{ display: 'flex', gap: 24, flexWrap: 'wrap' }}>
               <MetaItem label="Reference" value={rfq.project_id} />
@@ -222,7 +214,7 @@ function RFQRow({ rfq, onContinue }: { rfq: RFQRecord; onContinue: () => void })
             </div>
             <button
               onClick={(e) => { e.stopPropagation(); onContinue() }}
-              style={{ padding: '8px 16px', backgroundColor: 'transparent', color: 'var(--ps-teal)', border: '0.5px solid rgba(29,158,117,0.4)', borderRadius: 8, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit', transition: 'all 0.15s ease' }}
+              style={{ padding: '8px 16px', backgroundColor: 'transparent', color: 'var(--ps-teal)', border: '0.5px solid rgba(29,158,117,0.4)', borderRadius: 8, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}
               onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = 'rgba(29,158,117,0.08)' }}
               onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'transparent' }}
             >
