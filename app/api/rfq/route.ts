@@ -8,6 +8,7 @@ import * as postmark from 'postmark'
 const base     = new Airtable({ apiKey: process.env.AIRTABLE_API_KEY! }).base(process.env.AIRTABLE_BASE_ID!)
 const pmClient = new postmark.ServerClient(process.env.POSTMARK_API_KEY ?? 'POSTMARK_API_TEST')
 const FROM     = process.env.POSTMARK_FROM_EMAIL ?? 'create@pairascope.com'
+const ADMIN    = process.env.ADMIN_EMAIL ?? 'admin@pairascope.com'
 
 export async function POST(req: NextRequest) {
   try {
@@ -117,7 +118,7 @@ export async function POST(req: NextRequest) {
             .map((n: string) => `\u2022 ${n}`).join('\n')
           await pmClient.sendEmail({
             From:     FROM,
-            To:       artistEmail,
+            To:       ADMIN,
             Subject:  `[Pairascope] Your RFQ has been sent \u2013 ${projectName || 'Art Project'}`,
             TextBody: `Hi,\n\nYour RFQ for "${projectName || 'Art Project'}" has been sent to ${sent} vendor${sent !== 1 ? 's' : ''}:\n\n${vendorList}\n\nReference: ${projectId}\n\nView your dashboard:\n${process.env.NEXT_PUBLIC_APP_URL}/rfq-hub\n\nBest,\nPairascope`,
           })
