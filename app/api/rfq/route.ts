@@ -110,7 +110,8 @@ export async function POST(req: NextRequest) {
         .from('conversations').select('user_id').eq('id', conversationId).single()
       if (conv?.user_id) {
         const { data: artistData } = await supabaseAdmin.auth.admin.getUserById(conv.user_id)
-        const artistEmail = artistData?.user?.email
+        const rawEmail = artistData?.user?.email
+        const artistEmail = (rawEmail && rawEmail !== process.env.POSTMARK_FROM_EMAIL) ? rawEmail : process.env.ADMIN_EMAIL
         if (artistEmail) {
           const vendorList = (vendorNames || vendors.map((v) => v.name))
             .map((n: string) => `\u2022 ${n}`).join('\n')
