@@ -12,7 +12,24 @@ interface RFQRecord {
   scope_document:    string
   status:            string
   vendors_contacted: number
+  vendor_names:      string
+  vendor_ids:        string[]
+  vendor_statuses:   Record<string, string> | null
+  conversation_id:   string
   created_at:        string
+}
+
+const STATUS_STYLES: Record<string, { color: string; bg: string }> = {
+  'Draft':            { color: 'var(--ps-muted)', bg: 'rgba(136,135,128,0.1)'  },
+  'Sent':             { color: '#EF9F27',          bg: 'rgba(239,159,39,0.1)'   },
+  'Estimates Received': { color: '#1D9E75',        bg: 'rgba(29,158,117,0.1)'  },
+  'Closed':           { color: 'var(--ps-muted)', bg: 'rgba(136,135,128,0.08)' },
+}
+
+const VENDOR_STATUS_STYLES: Record<string, { color: string; bg: string }> = {
+  'Pending':   { color: '#EF9F27', bg: 'rgba(239,159,39,0.08)'   },
+  'Responded': { color: '#1D9E75', bg: 'rgba(29,158,117,0.08)'   },
+  'Declined':  { color: '#E24B4A', bg: 'rgba(226,75,74,0.08)'    },
 }
 
 export default function RFQHubPage() {
@@ -27,7 +44,9 @@ export default function RFQHubPage() {
       if (!session.session) { router.push('/'); return }
 
       try {
-        const res  = await fetch('/api/rfq')
+        const res  = await fetch('/api/rfq', {
+          headers: { authorization: `Bearer ${session.session.access_token}` },
+        })
         const data = await res.json()
         setRfqs(data.rfqs ?? [])
       } catch {
@@ -42,6 +61,24 @@ export default function RFQHubPage() {
   const total    = rfqs.length
   const sent     = rfqs.filter((r) => r.status === 'Sent').length
   const received = rfqs.filter((r) => r.status === 'Estimates Received').length
+
+  const handleContinue = (rfq: RFQRecord) => {
+    try {
+      const existing = sessionStorage.getItem('ps_conversation')
+      const parsed   = existing ? JSON.parse(existing) : {}
+      // Only restore if it matches this conversation
+      if (parsed.conversationId !== rfq.conversation_id) {
+        sessionStorage.setItem('ps_conversation', JSON.stringify({
+          conversationId: rfq.conversation_id,
+          messages:       [],
+          snapshot:       null,
+          started:        false,
+          restoreId:      rfq.conversation_id,
+        }))
+      }
+    } catch { /* ignore */ }
+    router.push(`/?conversationId=${rfq.conversation_id}`)
+  }
 
   return (
     <>
@@ -59,9 +96,9 @@ export default function RFQHubPage() {
           {/* Stats */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 12, marginBottom: 32 }}>
             {[
-              { label: 'Total RFQs',         value: total    },
-              { label: 'Awaiting responses', value: sent     },
-              { label: 'Proposals in',       value: received },
+              { label: 'Total RFQs',           value: total    },
+              { label: 'Awaiting responses',    value: sent     },
+              { label: 'Estimates received',    value: received },
             ].map(({ label, value }) => (
               <div key={label} style={{ backgroundColor: 'var(--ps-surface)', border: '0.5px solid var(--ps-border)', borderRadius: 10, padding: '16px 20px' }}>
                 <p style={{ fontSize: 11, color: 'var(--ps-muted)', textTransform: 'uppercase', letterSpacing: '0.07em', margin: '0 0 6px' }}>{label}</p>
@@ -70,7 +107,6 @@ export default function RFQHubPage() {
             ))}
           </div>
 
-          {/* List */}
           {isLoading && <div style={{ color: 'var(--ps-muted)', textAlign: 'center', padding: 60 }}>Loading…</div>}
           {error    && <div style={{ color: '#E24B4A', textAlign: 'center', padding: 60 }}>{error}</div>}
 
@@ -80,10 +116,8 @@ export default function RFQHubPage() {
               <p style={{ fontSize: 13, color: 'var(--ps-muted)', margin: '0 0 20px' }}>
                 Complete a project conversation and click "Generate RFQ" to send your first one.
               </p>
-              <button
-                onClick={() => router.push('/')}
-                style={{ padding: '9px 20px', backgroundColor: 'var(--ps-teal)', color: 'white', border: 'none', borderRadius: 8, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}
-              >
+              <button onClick={() => router.push('/')}
+                style={{ padding: '9px 20px', backgroundColor: 'var(--ps-teal)', color: 'white', border: 'none', borderRadius: 8, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}>
                 Start a project →
               </button>
             </div>
@@ -91,7 +125,7 @@ export default function RFQHubPage() {
 
           {!isLoading && rfqs.length > 0 && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-              {rfqs.map((rfq) => <RFQRow key={rfq.id} rfq={rfq} />)}
+              {rfqs.map((rfq) => <RFQRow key={rfq.id} rfq={rfq} onContinue={() => handleContinue(rfq)} />)}
             </div>
           )}
         </div>
@@ -100,17 +134,15 @@ export default function RFQHubPage() {
   )
 }
 
-const STATUS_STYLES: Record<string, { color: string; bg: string }> = {
-  'Draft':         { color: 'var(--ps-muted)', bg: 'rgba(136,135,128,0.1)' },
-  'Sent':          { color: '#EF9F27',          bg: 'rgba(239,159,39,0.1)'  },
-  'Responses In':  { color: '#1D9E75',           bg: 'rgba(29,158,117,0.1)' },
-  'Closed':        { color: 'var(--ps-muted)', bg: 'rgba(136,135,128,0.08)'},
-}
-
-function RFQRow({ rfq }: { rfq: RFQRecord }) {
+function RFQRow({ rfq, onContinue }: { rfq: RFQRecord; onContinue: () => void }) {
   const [expanded, setExpanded] = useState(false)
   const style = STATUS_STYLES[rfq.status] ?? STATUS_STYLES['Draft']
   const date  = new Date(rfq.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+
+  // Parse vendor names into array
+  const vendorList = rfq.vendor_names
+    ? rfq.vendor_names.split(',').map((v) => v.trim()).filter(Boolean)
+    : []
 
   return (
     <div style={{ backgroundColor: 'var(--ps-surface)', border: '0.5px solid var(--ps-border)', borderRadius: 10, overflow: 'hidden' }}>
@@ -130,12 +162,10 @@ function RFQRow({ rfq }: { rfq: RFQRecord }) {
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 16, flexShrink: 0 }}>
           <span style={{ fontSize: 12, color: 'var(--ps-muted)' }}>
-            {rfq.vendors_contacted} vendor{rfq.vendors_contacted !== 1 ? 's' : ''} contacted
+            {rfq.vendors_contacted} vendor{rfq.vendors_contacted !== 1 ? 's' : ''}
           </span>
           <span style={{ fontSize: 12, color: 'var(--ps-muted)' }}>{date}</span>
-          <span style={{ fontSize: 11, color: 'var(--ps-muted)', fontFamily: 'monospace' }}>
-            {rfq.project_id}
-          </span>
+          <span style={{ fontSize: 11, color: 'var(--ps-muted)', fontFamily: 'monospace' }}>{rfq.project_id}</span>
           <span style={{ color: 'var(--ps-muted)', fontSize: 12 }}>{expanded ? '▴' : '▾'}</span>
         </div>
       </div>
@@ -144,28 +174,60 @@ function RFQRow({ rfq }: { rfq: RFQRecord }) {
       {expanded && (
         <div style={{ borderTop: '0.5px solid var(--ps-border)' }}>
 
+          {/* Vendor status list */}
+          {vendorList.length > 0 && (
+            <div style={{ padding: '16px 20px', borderBottom: '0.5px solid var(--ps-border)' }}>
+              <p style={{ fontSize: 11, color: 'var(--ps-muted)', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 10 }}>
+                Vendors contacted
+              </p>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                {vendorList.map((vendorName, i) => {
+                  const vendorStatus = rfq.vendor_statuses?.[vendorName] ?? 'Pending'
+                  const vs = VENDOR_STATUS_STYLES[vendorStatus] ?? VENDOR_STATUS_STYLES['Pending']
+                  return (
+                    <div key={i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 12px', backgroundColor: 'var(--ps-bg)', borderRadius: 8, border: '0.5px solid var(--ps-border)' }}>
+                      <span style={{ fontSize: 13, color: 'var(--ps-text)' }}>{vendorName}</span>
+                      <span style={{ fontSize: 11, color: vs.color, backgroundColor: vs.bg, padding: '2px 8px', borderRadius: 20, fontWeight: 500 }}>
+                        {vendorStatus}
+                      </span>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          )}
+
           {/* Scope document */}
           <div style={{ padding: '16px 20px', borderBottom: '0.5px solid var(--ps-border)' }}>
             <p style={{ fontSize: 11, color: 'var(--ps-muted)', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 10 }}>
-              Scope document sent to vendors
+              Scope document
             </p>
             <pre style={{
               fontSize: 12, color: 'var(--ps-text)', lineHeight: 1.7,
               whiteSpace: 'pre-wrap', fontFamily: 'inherit', margin: 0,
               backgroundColor: 'var(--ps-bg)', padding: '12px 14px',
               borderRadius: 8, border: '0.5px solid var(--ps-border)',
-              maxHeight: 400, overflowY: 'auto',
+              maxHeight: 300, overflowY: 'auto',
             }}>
               {rfq.scope_document || 'No scope document available.'}
             </pre>
           </div>
 
-          {/* Meta */}
-          <div style={{ padding: '12px 20px', display: 'flex', gap: 24, flexWrap: 'wrap' }}>
-            <MetaItem label="Reference" value={rfq.project_id} />
-            <MetaItem label="Sent"      value={date} />
-            <MetaItem label="Vendors"   value={String(rfq.vendors_contacted)} />
-            <MetaItem label="Status"    value={rfq.status} />
+          {/* Footer actions */}
+          <div style={{ padding: '12px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
+            <div style={{ display: 'flex', gap: 24, flexWrap: 'wrap' }}>
+              <MetaItem label="Reference" value={rfq.project_id} />
+              <MetaItem label="Sent"      value={date} />
+              <MetaItem label="Status"    value={rfq.status} />
+            </div>
+            <button
+              onClick={(e) => { e.stopPropagation(); onContinue() }}
+              style={{ padding: '8px 16px', backgroundColor: 'transparent', color: 'var(--ps-teal)', border: '0.5px solid rgba(29,158,117,0.4)', borderRadius: 8, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit', transition: 'all 0.15s ease' }}
+              onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = 'rgba(29,158,117,0.08)' }}
+              onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'transparent' }}
+            >
+              Continue conversation →
+            </button>
           </div>
         </div>
       )}

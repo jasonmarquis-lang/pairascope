@@ -1,6 +1,8 @@
 'use client'
 
 import { useState, useRef, useEffect, useCallback } from 'react'
+import { useSearchParams } from 'next/navigation'
+import { Suspense } from 'react'
 import { v4 as uuidv4 } from 'uuid'
 import Nav from '@/components/ui/Nav'
 import ChatInput from '@/components/chat/ChatInput'
@@ -29,7 +31,10 @@ function saveSession(data: { messages: Message[]; snapshot: ProjectSnapshot | nu
   try { sessionStorage.setItem(SESSION_KEY, JSON.stringify(data)) } catch { /* ignore */ }
 }
 
-export default function HomePage() {
+function HomeContent() {
+  const searchParams = useSearchParams()
+  const urlConvId    = searchParams.get('conversationId')
+
   const [hydrated,       setHydrated]       = useState(false)
   const [started,        setStarted]        = useState(false)
   const [messages,       setMessages]       = useState<Message[]>([])
@@ -38,33 +43,62 @@ export default function HomePage() {
   const [showScope,      setShowScope]      = useState(false)
   const [conversationId, setConversationId] = useState<string>('')
   const [placeholder,    setPlaceholder]    = useState(PLACEHOLDERS[0])
-  const [phaseIdx,       setPhaseIdx]       = useState(0)
+  const [restoring,      setRestoring]      = useState(false)
   const abortRef = useRef<AbortController | null>(null)
 
-  // Hydrate from sessionStorage on mount
+  // Hydrate from sessionStorage, or restore from URL conversationId
   useEffect(() => {
     const saved = loadSession()
-    if (saved.started && saved.messages?.length > 0) {
+
+    if (urlConvId) {
+      // Came from RFQ Hub — restore this conversation from Supabase
+      if (saved.conversationId === urlConvId && saved.messages?.length > 0) {
+        // Already in session — just restore it
+        setStarted(true)
+        setMessages(saved.messages)
+        setConversationId(saved.conversationId)
+        setSnapshot(saved.snapshot)
+        setShowScope(!!saved.snapshot)
+      } else {
+        // Need to load from Supabase
+        setConversationId(urlConvId)
+        setRestoring(true)
+        fetch(`/api/chat/history?conversationId=${urlConvId}`)
+          .then((r) => r.json())
+          .then((data) => {
+            if (data.messages?.length > 0) {
+              setMessages(data.messages)
+              setSnapshot(data.snapshot ?? null)
+              setShowScope(!!data.snapshot)
+              setStarted(true)
+              saveSession({ messages: data.messages, snapshot: data.snapshot ?? null, conversationId: urlConvId, started: true })
+            }
+          })
+          .catch(() => { /* silently fail — start fresh */ })
+          .finally(() => setRestoring(false))
+      }
+    } else if (saved.started && saved.messages?.length > 0) {
       setStarted(saved.started)
       setMessages(saved.messages)
       setConversationId(saved.conversationId)
       setSnapshot(saved.snapshot)
       setShowScope(saved.snapshot?.confidenceLevel === 'yellow' || saved.snapshot?.confidenceLevel === 'green')
     }
+
     setHydrated(true)
-  }, [])
+  }, [urlConvId])
 
   // Persist session on every change
   useEffect(() => {
     if (hydrated) saveSession({ messages, snapshot, conversationId, started })
   }, [messages, snapshot, conversationId, started, hydrated])
 
+  // Rotate placeholder
   useEffect(() => {
     const interval = setInterval(() => {
-      setPhaseIdx((i) => {
-        const next = (i + 1) % PLACEHOLDERS.length
-        setPlaceholder(PLACEHOLDERS[next])
-        return next
+      setPlaceholder((p) => {
+        const idx  = PLACEHOLDERS.indexOf(p)
+        return PLACEHOLDERS[(idx + 1) % PLACEHOLDERS.length]
       })
     }, 3000)
     return () => clearInterval(interval)
@@ -119,7 +153,7 @@ export default function HomePage() {
               if (parsed.type === 'text') {
                 setMessages((prev) => prev.map((m) => m.id === assistantId ? { ...m, content: m.content + parsed.text } : m))
               }
-              if (parsed.type === 'snapshot') setSnapshot(parsed.snapshot)
+              if (parsed.type === 'snapshot')       setSnapshot(parsed.snapshot)
               if (parsed.type === 'conversationId') setConversationId(parsed.conversationId)
             } catch { /* skip */ }
           }
@@ -127,7 +161,7 @@ export default function HomePage() {
       }
     } catch (err: unknown) {
       if (err instanceof Error && err.name === 'AbortError') return
-      setMessages((prev) => [...prev, { id: uuidv4(), role: 'assistant', content: "Something went wrong on our end. Please refresh and try again in a moment." }])
+      setMessages((prev) => [...prev, { id: uuidv4(), role: 'assistant', content: 'Something went wrong. Please refresh and try again.' }])
     } finally {
       setIsLoading(false)
     }
@@ -146,6 +180,17 @@ export default function HomePage() {
 
   if (!hydrated) return null
 
+  if (restoring) {
+    return (
+      <>
+        <Nav />
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh', color: 'var(--ps-muted)', fontSize: 14 }}>
+          Restoring conversation…
+        </div>
+      </>
+    )
+  }
+
   return (
     <>
       <Nav />
@@ -155,8 +200,12 @@ export default function HomePage() {
             <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               <div style={{ width: '100%', maxWidth: 800, padding: '0 24px', display: 'flex', flexDirection: 'column', gap: 32 }}>
                 <div style={{ textAlign: 'center' }}>
-                  <h1 style={{ fontSize: '2rem', fontWeight: 400, color: 'var(--ps-white)', margin: '0 0 10px', lineHeight: 1.2 }}>Scope. Pair. Create.</h1>
-                  <p style={{ fontSize: 16, color: 'var(--ps-muted)', margin: 0 }}>Fabrication, shipping, installation, and more.</p>
+                  <h1 style={{ fontSize: '2rem', fontWeight: 400, color: 'var(--ps-white)', margin: '0 0 10px', lineHeight: 1.2 }}>
+                    Scope. Pair. Create.
+                  </h1>
+                  <p style={{ fontSize: 16, color: 'var(--ps-muted)', margin: 0 }}>
+                    Fabrication, shipping, installation, and more.
+                  </p>
                 </div>
                 <ChatInput onSend={sendMessage} onNewProject={handleNewProject} isLoading={isLoading} started={started} placeholder={placeholder} />
               </div>
@@ -174,11 +223,19 @@ export default function HomePage() {
         </div>
 
         {showScope && snapshot && (
-          <div style={{ width: 400, borderLeft: '0.5px solid var(--ps-border)', overflowY: 'auto', flexShrink: 0, animation: 'slideLeft 0.4s ease-out' }}>
+          <div style={{ width: 400, borderLeft: '0.5px solid var(--ps-border)', overflowY: 'auto', flexShrink: 0 }}>
             <ScopePanel snapshot={snapshot} conversationId={conversationId} />
           </div>
         )}
       </main>
     </>
+  )
+}
+
+export default function HomePage() {
+  return (
+    <Suspense fallback={null}>
+      <HomeContent />
+    </Suspense>
   )
 }
