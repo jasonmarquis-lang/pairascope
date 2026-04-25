@@ -73,7 +73,7 @@ export async function createProjectRecord(params: {
       [P.aiSummary]:       snapshot.aiSummary    || '',
     }
     fields[P.confidenceLevel] = (snapshot.confidenceScore || 0) / 100
-    const snapshotAny = snapshot as Record<string, unknown>
+    const snapshotAny = snapshot as unknown as Record<string, unknown>
     const deadlineVal = snapshotAny['deadline']
     if (deadlineVal && typeof deadlineVal === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(deadlineVal)) {
       fields[P.deadline] = deadlineVal
