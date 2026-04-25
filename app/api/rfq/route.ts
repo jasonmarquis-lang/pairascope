@@ -116,17 +116,17 @@ export async function POST(req: NextRequest) {
           const accountId = await getAccountIdByEmail(artistEmail)
           if (accountId) {
             await base('Projects').update(airtableProjectId, {
-              'fldiIKuIYg3ZUFb4j': [{ id: accountId }] as unknown as string[],
+              'fldiIKuIYg3ZUFb4j': [accountId],
             } as Airtable.FieldSet)
             await base('RFQs').update(rfqId, {
-              'fldHzowEvX6pIC0rR': [{ id: accountId }] as unknown as string[],
+              'fldHzowEvX6pIC0rR': [accountId],
             } as Airtable.FieldSet)
           }
         }
         // Link Vendors Contacted
         if (vendorIds?.length > 0) {
           await base('Projects').update(airtableProjectId, {
-            'fldIHf9NMXMX6p0MQ': vendorIds.map((id: string) => ({ id })) as unknown as string[],
+            'fldIHf9NMXMX6p0MQ': vendorIds,
           } as Airtable.FieldSet)
         }
       }
