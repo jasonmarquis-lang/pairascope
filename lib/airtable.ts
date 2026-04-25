@@ -32,6 +32,9 @@ const P = {
   budgetRange:     'fldrSoVPrtZYzivUH',
   confidenceLevel: 'fldkkEbVv2vyDFtne',
   convId:          'fldngbTEeVeb7SFBR',
+  deadline:        'fldCFv0cFWceQcQxm',
+  accounts:        'fldiIKuIYg3ZUFb4j',
+  vendorsContacted:'fldIHf9NMXMX6p0MQ',
 }
 
 // Helper — safely extract string from aiText or string field

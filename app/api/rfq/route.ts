@@ -105,6 +105,35 @@ export async function POST(req: NextRequest) {
       console.error('[RFQ] Supabase error:', JSON.stringify(sbErr))
     }
 
+    // Link Account record and Vendors Contacted to Project
+    try {
+      const { data: conv } = await supabaseAdmin.from('conversations').select('user_id').eq('id', conversationId).single()
+      if (conv?.user_id && airtableProjectId) {
+        const { data: userData } = await supabaseAdmin.auth.admin.getUserById(conv.user_id)
+        const artistEmail = userData?.user?.email
+        if (artistEmail) {
+          const { getAccountIdByEmail } = await import('@/lib/airtable')
+          const accountId = await getAccountIdByEmail(artistEmail)
+          if (accountId) {
+            await base('Projects').update(airtableProjectId, {
+              'fldiIKuIYg3ZUFb4j': [{ id: accountId }],
+            } as Airtable.FieldSet)
+            await base('RFQs').update(rfqId, {
+              'fldHzowEvX6pIC0rR': [{ id: accountId }],
+            } as Airtable.FieldSet)
+          }
+        }
+        // Link Vendors Contacted
+        if (vendorIds?.length > 0) {
+          await base('Projects').update(airtableProjectId, {
+            'fldIHf9NMXMX6p0MQ': vendorIds.map((id: string) => ({ id })) as unknown as string[],
+          } as Airtable.FieldSet)
+        }
+      }
+    } catch (linkErr) {
+      console.error('[RFQ] Account/vendor linking failed:', linkErr)
+    }
+
     // Artist confirmation email
     try {
       const { data: conv } = await supabaseAdmin

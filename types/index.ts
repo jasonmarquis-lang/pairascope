@@ -37,6 +37,7 @@ export interface ProjectSnapshot {
   missingInfo?:             string[]
   budgetRange?:             string
   timeline?:                string
+  deadline?:                string
   finish?:                  string
   structuralRequirements?:  string
   siteConditions?:          string

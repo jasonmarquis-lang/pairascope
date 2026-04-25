@@ -179,6 +179,8 @@ Extract these fields:
   "missingInfo": string[] (list of important unknowns that a vendor would need),
   "budgetRange": string or null,
   "timeline": string or null,
+  "deadline": string or null (specific date if mentioned, e.g. "2026-09-01", null if not mentioned),
+  "deadline": string or null (specific date if mentioned, e.g. "2026-09-01", null if not mentioned),
   "finish": string or null,
   "structuralRequirements": string or null,
   "siteConditions": string or null,
