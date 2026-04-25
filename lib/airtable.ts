@@ -93,7 +93,10 @@ export async function createProjectRecord(params: {
       return record.getId()
     }
   } catch (err) {
-    console.error('[Airtable] createProjectRecord failed:', JSON.stringify(err))
+    const errMsg = err instanceof Error ? err.message : JSON.stringify(err)
+    const errDetail = (err as Record<string, unknown>)?.error ?? ''
+    const errStatus = (err as Record<string, unknown>)?.statusCode ?? ''
+    console.error('[Airtable] createProjectRecord failed:', errStatus, errMsg, JSON.stringify(errDetail))
     return null
   }
 }
