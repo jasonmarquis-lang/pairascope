@@ -4,121 +4,249 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import Nav from '@/components/ui/Nav'
-import type { User } from '@supabase/supabase-js'
+
+const HOW_FOUND_OPTIONS = [
+  'Word of mouth',
+  'Google search',
+  'Social media',
+  'Art fair or event',
+  'Referred by a vendor',
+  'Referred by a colleague',
+  'Press or media',
+  'Direct outreach',
+  'Other',
+]
 
 export default function AccountPage() {
-  const router = useRouter()
-  const [user,        setUser]        = useState<User | null>(null)
-  const [displayName, setDisplayName] = useState('')
-  const [newPassword, setNewPassword] = useState('')
-  const [confirmPass, setConfirmPass] = useState('')
-  const [saving,      setSaving]      = useState(false)
-  const [message,     setMessage]     = useState('')
-  const [error,       setError]       = useState('')
+  const router  = useRouter()
+  const [loading,   setLoading]   = useState(true)
+  const [saving,    setSaving]    = useState(false)
+  const [saved,     setSaved]     = useState(false)
+  const [error,     setError]     = useState('')
+  const [email,     setEmail]     = useState('')
+
+  // Form fields
+  const [firstName,   setFirstName]   = useState('')
+  const [lastName,    setLastName]    = useState('')
+  const [company,     setCompany]     = useState('')
+  const [phone,       setPhone]       = useState('')
+  const [street,      setStreet]      = useState('')
+  const [city,        setCity]        = useState('')
+  const [state,       setState]       = useState('')
+  const [postalCode,  setPostalCode]  = useState('')
+  const [country,     setCountry]     = useState('')
+  const [website,     setWebsite]     = useState('')
+  const [howFoundUs,  setHowFoundUs]  = useState('')
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
-      if (!data.session?.user) { router.push('/'); return }
-      setUser(data.session.user)
-      setDisplayName(data.session.user.user_metadata?.display_name || '')
-    })
+    const load = async () => {
+      const { data: sessionData } = await supabase.auth.getSession()
+      if (!sessionData.session) { router.push('/'); return }
+
+      const user  = sessionData.session.user
+      const token = sessionData.session.access_token
+      setEmail(user.email ?? '')
+
+      // Pre-fill name from Supabase metadata
+      const meta = user.user_metadata ?? {}
+      setFirstName(meta.first_name ?? '')
+      setLastName(meta.last_name  ?? '')
+
+      // Load existing Airtable account data
+      try {
+        const res  = await fetch('/api/account', {
+          headers: { 'Authorization': 'Bearer ' + token },
+        })
+        const data = await res.json()
+        if (data.account) {
+          const a = data.account
+          if (a.company)    setCompany(a.company)
+          if (a.phone)      setPhone(a.phone)
+          if (a.website)    setWebsite(a.website)
+          if (a.howFoundUs) setHowFoundUs(a.howFoundUs)
+          // Parse location back into parts if stored as combined string
+          if (a.location) {
+            const parts = a.location.split(', ')
+            if (parts.length >= 1) setStreet(parts[0]   ?? '')
+            if (parts.length >= 2) setCity(parts[1]     ?? '')
+            if (parts.length >= 3) setState(parts[2]    ?? '')
+            if (parts.length >= 4) setPostalCode(parts[3] ?? '')
+            if (parts.length >= 5) setCountry(parts[4]  ?? '')
+          }
+        }
+      } catch { /* silently fail */ }
+
+      setLoading(false)
+    }
+    load()
   }, [router])
 
-  const handleSaveProfile = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setSaving(true); setMessage(''); setError('')
+  const handleSave = async () => {
+    setSaving(true); setSaved(false); setError('')
     try {
-      const { error } = await supabase.auth.updateUser({ data: { display_name: displayName } })
-      if (error) throw error
-      setMessage('Profile updated successfully.')
+      const { data: sessionData } = await supabase.auth.getSession()
+      const token  = sessionData.session?.access_token
+      const userId = sessionData.session?.user.id
+
+      // Update Supabase user metadata
+      const displayName = [firstName, lastName].filter(Boolean).join(' ')
+      await supabase.auth.updateUser({
+        data: { first_name: firstName, last_name: lastName, display_name: displayName || email.split('@')[0] }
+      })
+
+      // Save to Airtable via API
+      const res = await fetch('/api/account', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+        body:    JSON.stringify({
+          userId,
+          email,
+          fullName: displayName,
+          company,
+          phone,
+          street,
+          city,
+          state,
+          postalCode,
+          country,
+          website,
+          howFoundUs,
+        }),
+      })
+      if (!res.ok) throw new Error('Failed to save')
+      setSaved(true)
+      setTimeout(() => setSaved(false), 3000)
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Update failed.')
-    } finally { setSaving(false) }
+      setError(err instanceof Error ? err.message : 'Failed to save. Please try again.')
+    } finally {
+      setSaving(false)
+    }
   }
 
-  const handleChangePassword = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (newPassword !== confirmPass) { setError('Passwords do not match.'); return }
-    if (newPassword.length < 6) { setError('Password must be at least 6 characters.'); return }
-    setSaving(true); setMessage(''); setError('')
-    try {
-      const { error } = await supabase.auth.updateUser({ password: newPassword })
-      if (error) throw error
-      setMessage('Password updated successfully.')
-      setNewPassword(''); setConfirmPass('')
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Password update failed.')
-    } finally { setSaving(false) }
+  const inputStyle: React.CSSProperties = {
+    width: '100%', backgroundColor: 'var(--ps-bg)',
+    border: '0.5px solid var(--ps-border)', borderRadius: 8,
+    padding: '10px 12px', fontSize: 14, color: 'var(--ps-text)',
+    fontFamily: 'inherit', outline: 'none',
   }
 
-  const handleSignOut = async () => {
-    await supabase.auth.signOut()
-    router.push('/')
+  const labelStyle: React.CSSProperties = {
+    fontSize: 11, color: 'var(--ps-muted)', textTransform: 'uppercase',
+    letterSpacing: '0.07em', display: 'block', marginBottom: 6,
   }
 
-  if (!user) return null
+  const sectionStyle: React.CSSProperties = {
+    backgroundColor: 'var(--ps-surface)', border: '0.5px solid var(--ps-border)',
+    borderRadius: 12, padding: '24px', marginBottom: 20,
+  }
 
-  const inputStyle = { width: '100%', backgroundColor: 'var(--ps-bg)', border: '0.5px solid var(--ps-border)', borderRadius: 8, padding: '9px 12px', fontSize: 14, color: 'var(--ps-text)', fontFamily: 'inherit', outline: 'none' }
-  const cardStyle  = { backgroundColor: 'var(--ps-surface)', border: '0.5px solid var(--ps-border)', borderRadius: 12, padding: 24, marginBottom: 16 }
-  const btnStyle   = { alignSelf: 'flex-start' as const, padding: '8px 20px', backgroundColor: 'var(--ps-teal)', color: 'white', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 500, cursor: 'pointer', fontFamily: 'inherit' }
+  if (loading) return (
+    <>
+      <Nav />
+      <div style={{ paddingTop: 56, display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh', color: 'var(--ps-muted)' }}>Loading...</div>
+    </>
+  )
 
   return (
     <>
       <Nav />
       <main style={{ paddingTop: 56, minHeight: '100vh' }}>
-        <div style={{ maxWidth: 560, margin: '0 auto', padding: '48px 24px' }}>
+        <div style={{ maxWidth: 640, margin: '0 auto', padding: '48px 24px' }}>
 
-          <div style={{ marginBottom: 40 }}>
-            <h1 style={{ fontSize: '1.75rem', fontWeight: 400, color: 'var(--ps-white)', margin: '0 0 6px' }}>Account</h1>
-            <p style={{ fontSize: 14, color: 'var(--ps-muted)', margin: 0 }}>{user.email}</p>
+          <div style={{ marginBottom: 32 }}>
+            <h1 style={{ fontSize: '1.75rem', fontWeight: 400, color: 'var(--ps-white)', margin: '0 0 8px' }}>Account settings</h1>
+            <p style={{ fontSize: 15, color: 'var(--ps-muted)', margin: 0 }}>{email}</p>
           </div>
 
-          {message && <div style={{ backgroundColor: 'rgba(29,158,117,0.1)', border: '0.5px solid rgba(29,158,117,0.3)', borderRadius: 8, padding: '10px 14px', marginBottom: 20, fontSize: 13, color: '#1D9E75' }}>{message}</div>}
-          {error   && <div style={{ backgroundColor: 'rgba(226,75,74,0.1)',   border: '0.5px solid rgba(226,75,74,0.3)',   borderRadius: 8, padding: '10px 14px', marginBottom: 20, fontSize: 13, color: '#E24B4A' }}>{error}</div>}
-
-          <div style={cardStyle}>
-            <h2 style={{ fontSize: 15, fontWeight: 500, color: 'var(--ps-white)', margin: '0 0 20px' }}>Profile</h2>
-            <form onSubmit={handleSaveProfile} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-              <div>
-                <label style={{ fontSize: 12, color: 'var(--ps-muted)', display: 'block', marginBottom: 5 }}>Display name</label>
-                <input type="text" value={displayName} onChange={(e) => setDisplayName(e.target.value)} placeholder="Your name" style={inputStyle} />
+          {/* Personal info */}
+          <div style={sectionStyle}>
+            <h2 style={{ fontSize: 14, fontWeight: 500, color: 'var(--ps-white)', margin: '0 0 20px' }}>Personal information</h2>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                <div>
+                  <label style={labelStyle}>First name</label>
+                  <input type="text" value={firstName} onChange={(e) => setFirstName(e.target.value)} placeholder="Jane" style={inputStyle} />
+                </div>
+                <div>
+                  <label style={labelStyle}>Last name</label>
+                  <input type="text" value={lastName} onChange={(e) => setLastName(e.target.value)} placeholder="Smith" style={inputStyle} />
+                </div>
               </div>
               <div>
-                <label style={{ fontSize: 12, color: 'var(--ps-muted)', display: 'block', marginBottom: 5 }}>Email</label>
-                <input type="text" value={user.email || ''} disabled style={{ ...inputStyle, color: 'var(--ps-muted)', cursor: 'not-allowed', backgroundColor: 'rgba(255,255,255,0.03)' }} />
-                <p style={{ fontSize: 11, color: 'var(--ps-muted)', margin: '5px 0 0' }}>Email cannot be changed.</p>
+                <label style={labelStyle}>Company / Studio</label>
+                <input type="text" value={company} onChange={(e) => setCompany(e.target.value)} placeholder="Studio name or company" style={inputStyle} />
               </div>
-              <button type="submit" disabled={saving} style={{ ...btnStyle, opacity: saving ? 0.6 : 1 }}>
-                {saving ? 'Saving…' : 'Save profile'}
-              </button>
-            </form>
+              <div>
+                <label style={labelStyle}>Phone</label>
+                <input type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="+1 (555) 000-0000" style={inputStyle} />
+              </div>
+              <div>
+                <label style={labelStyle}>Website</label>
+                <input type="url" value={website} onChange={(e) => setWebsite(e.target.value)} placeholder="https://yourwebsite.com" style={inputStyle} />
+              </div>
+            </div>
           </div>
 
-          <div style={cardStyle}>
-            <h2 style={{ fontSize: 15, fontWeight: 500, color: 'var(--ps-white)', margin: '0 0 20px' }}>Change password</h2>
-            <form onSubmit={handleChangePassword} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+          {/* Address */}
+          <div style={sectionStyle}>
+            <h2 style={{ fontSize: 14, fontWeight: 500, color: 'var(--ps-white)', margin: '0 0 20px' }}>Address</h2>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
               <div>
-                <label style={{ fontSize: 12, color: 'var(--ps-muted)', display: 'block', marginBottom: 5 }}>New password</label>
-                <input type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} placeholder="••••••••" style={inputStyle} />
+                <label style={labelStyle}>Street address</label>
+                <input type="text" value={street} onChange={(e) => setStreet(e.target.value)} placeholder="123 Main St" style={inputStyle} />
               </div>
-              <div>
-                <label style={{ fontSize: 12, color: 'var(--ps-muted)', display: 'block', marginBottom: 5 }}>Confirm password</label>
-                <input type="password" value={confirmPass} onChange={(e) => setConfirmPass(e.target.value)} placeholder="••••••••" style={inputStyle} />
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                <div>
+                  <label style={labelStyle}>City</label>
+                  <input type="text" value={city} onChange={(e) => setCity(e.target.value)} placeholder="New York" style={inputStyle} />
+                </div>
+                <div>
+                  <label style={labelStyle}>State / Province</label>
+                  <input type="text" value={state} onChange={(e) => setState(e.target.value)} placeholder="NY" style={inputStyle} />
+                </div>
               </div>
-              <button type="submit" disabled={saving} style={{ ...btnStyle, opacity: saving ? 0.6 : 1 }}>
-                {saving ? 'Saving…' : 'Update password'}
-              </button>
-            </form>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                <div>
+                  <label style={labelStyle}>Postal code</label>
+                  <input type="text" value={postalCode} onChange={(e) => setPostalCode(e.target.value)} placeholder="10001" style={inputStyle} />
+                </div>
+                <div>
+                  <label style={labelStyle}>Country</label>
+                  <input type="text" value={country} onChange={(e) => setCountry(e.target.value)} placeholder="United States" style={inputStyle} />
+                </div>
+              </div>
+            </div>
           </div>
 
-          <div style={cardStyle}>
-            <h2 style={{ fontSize: 15, fontWeight: 500, color: 'var(--ps-white)', margin: '0 0 8px' }}>Sign out</h2>
-            <p style={{ fontSize: 13, color: 'var(--ps-muted)', margin: '0 0 16px' }}>You will be returned to the home page.</p>
-            <button onClick={handleSignOut} style={{ padding: '8px 20px', backgroundColor: 'transparent', color: '#E24B4A', border: '0.5px solid rgba(226,75,74,0.4)', borderRadius: 8, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}>
-              Sign out
-            </button>
+          {/* How they found us */}
+          <div style={sectionStyle}>
+            <h2 style={{ fontSize: 14, fontWeight: 500, color: 'var(--ps-white)', margin: '0 0 20px' }}>How did you find Pairascope?</h2>
+            <div>
+              <label style={labelStyle}>Source <span style={{ color: 'rgba(136,135,128,0.5)' }}>optional</span></label>
+              <select
+                value={howFoundUs}
+                onChange={(e) => setHowFoundUs(e.target.value)}
+                style={{ ...inputStyle, cursor: 'pointer' }}
+              >
+                <option value="">Select an option...</option>
+                {HOW_FOUND_OPTIONS.map((opt) => (
+                  <option key={opt} value={opt}>{opt}</option>
+                ))}
+              </select>
+            </div>
           </div>
 
+          {/* Save button */}
+          {error && <p style={{ fontSize: 13, color: '#E24B4A', marginBottom: 12 }}>{error}</p>}
+          {saved && <p style={{ fontSize: 13, color: 'var(--ps-teal)', marginBottom: 12 }}>Changes saved successfully.</p>}
+
+          <button
+            onClick={handleSave}
+            disabled={saving}
+            style={{ width: '100%', padding: '12px 0', backgroundColor: saving ? 'rgba(29,158,117,0.5)' : 'var(--ps-teal)', color: 'white', border: 'none', borderRadius: 10, fontSize: 14, fontWeight: 500, cursor: saving ? 'default' : 'pointer', fontFamily: 'inherit' }}
+          >
+            {saving ? 'Saving...' : 'Save changes'}
+          </button>
         </div>
       </main>
     </>
