@@ -4,71 +4,34 @@ import { supabaseAdmin } from '@/lib/supabase'
 
 const base = new Airtable({ apiKey: process.env.AIRTABLE_API_KEY! }).base(process.env.AIRTABLE_BASE_ID!)
 
-const HOW_FOUND_OPTIONS = [
-  'Word of mouth',
-  'Google search',
-  'Social media',
-  'Art fair or event',
-  'Referred by a vendor',
-  'Referred by a colleague',
-  'Press or media',
-  'Direct outreach',
-  'Other',
-]
-
 export async function POST(req: NextRequest) {
   try {
-    const { userId, email, fullName, company, phone, street, city, state, postalCode, country, website, howFoundUs }
+    const body = await req.json()
+    const { userId, email, fullName, company, phone, street, city, state, postalCode, country, website, howFoundUs } = body
 
-ll
-cat > ~/Desktop/pairascope/app/api/account/route.ts << 'ENDOFFILE'
-import { NextRequest, NextResponse } from 'next/server'
-import Airtable from 'airtable'
-import { supabaseAdmin } from '@/lib/supabase'
+    const locationParts = [street, city, state, postalCode, country].filter(Boolean)
+    const location = locationParts.join(', ')
 
-const base = new Airtable({ apiKey: process.env.AIRTABLE_API_KEY! }).base(process.env.AIRTABLE_BASE_ID!)
+    const fields: Airtable.FieldSet = {
+      'fldbPiuuDL1ETs4cX': fullName || '',
+      'fldvjFGBCMLpwwo8h': email,
+      'fld9t2PM9fCfzGrp7': userId || '',
+    }
 
-const HOW_FOUND_OPTIONS = [
-  'Word of mouth',
-  'Google search',
-  'Social media',
-  'Art fair or event',
-  'Referred by a vendor',
-  'Referred by a colleague',
-  'Press or media',
-  'Direct outreach',
-  'Other',
-]
+    if (company)    fields['fldEOggjVD7aSjffX'] = company
+    if (phone)      fields['fldszQgrULXRlKkRW'] = phone
+    if (location)   fields['fldC424jCX4u9M4MR'] = location
+    if (website)    fields['fldBveiqEkNoTglvt'] = website
+    if (howFoundUs) fields['fldfassYVNLG0Ym5u'] = howFoundUs
 
-export async function POST(req: NextRequest) {
-  try {
-    const { userId, email, fullName, company, phone, street, city, state, postalCode, country, website, howFoundUs } = await req.json()
-
-    // Upsert to Airtable Accounts table
     const existing = await base('Accounts')
       .select({ filterByFormula: `{Email} = "${email}"`, maxRecords: 1 })
       .all()
 
-    const fields: Record<string, unknown> = {
-      'fldvjFGBCMLpwwo8h': email,
-      'fld9t2PM9fCfzGrp7': userId || '',
-    }
-    if (fullName)   fields['fldbPiuuDL1ETs4cX'] = fullName
-    if (company)    fields['fldEOggjVD7aSjffX'] = company
-    if (phone)      fields['fldszQgrULXRlKkRW'] = phone
-    if (street)     fields['fldC424jCX4u9M4MR'] = street
-    if (city)       fields['fldC424jCX4u9M4MR'] = [street, city].filter(Boolean).join(', ')
-    if (website)    fields['fldBveiqEkNoTglvt'] = website
-    if (howFoundUs) fields['fldfassYVNLG0Ym5u'] = howFoundUs
-
-    // Build full location string
-    const locationParts = [street, city, state, postalCode, country].filter(Boolean)
-    if (locationParts.length) fields['fldC424jCX4u9M4MR'] = locationParts.join(', ')
-
     if (existing.length > 0) {
-      await base('Accounts').update(existing[0].getId(), fields as Airtable.FieldSet)
+      await base('Accounts').update(existing[0].getId(), fields)
     } else {
-      await base('Accounts').create(fields as Airtable.FieldSet)
+      await base('Accounts').create(fields)
     }
 
     return NextResponse.json({ success: true })
@@ -94,17 +57,23 @@ export async function GET(req: NextRequest) {
     if (!records.length) return NextResponse.json({ account: null })
 
     const r = records[0]
+    const location = (r.get('Location') as string) ?? ''
+    const parts    = location.split(', ')
+
     return NextResponse.json({
       account: {
-        fullName:   r.get('Full Name')        as string ?? '',
-        email:      r.get('Email')            as string ?? '',
-        company:    r.get('Company / Studio') as string ?? '',
-        phone:      r.get('Phone')            as string ?? '',
-        location:   r.get('Location')         as string ?? '',
-        website:    r.get('Website')          as string ?? '',
-        howFoundUs: r.get('How They Found Us') as string ?? '',
+        fullName:   (r.get('Full Name')         as string) ?? '',
+        email:      (r.get('Email')             as string) ?? '',
+        company:    (r.get('Company / Studio')  as string) ?? '',
+        phone:      (r.get('Phone')             as string) ?? '',
+        website:    (r.get('Website')           as string) ?? '',
+        howFoundUs: (r.get('How They Found Us') as string) ?? '',
+        street:     parts[0] ?? '',
+        city:       parts[1] ?? '',
+        state:      parts[2] ?? '',
+        postalCode: parts[3] ?? '',
+        country:    parts[4] ?? '',
       },
-      howFoundOptions: HOW_FOUND_OPTIONS,
     })
   } catch (err) {
     console.error('[/api/account] GET error:', err)
