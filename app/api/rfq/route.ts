@@ -107,28 +107,31 @@ export async function POST(req: NextRequest) {
 
     // Link Account record and Vendors Contacted to Project
     try {
-      const { data: conv } = await supabaseAdmin.from('conversations').select('user_id').eq('id', conversationId).single()
-      if (conv?.user_id && airtableProjectId) {
-        const { data: userData } = await supabaseAdmin.auth.admin.getUserById(conv.user_id)
-        const artistEmail = userData?.user?.email
-        if (artistEmail) {
-          const { getAccountIdByEmail } = await import('@/lib/airtable')
-          const accountId = await getAccountIdByEmail(artistEmail)
-          if (accountId) {
-            await base('Projects').update(airtableProjectId, {
-              'fldiIKuIYg3ZUFb4j': [accountId],
-            } as Airtable.FieldSet)
-            await base('RFQs').update(rfqId, {
-              'fldHzowEvX6pIC0rR': [accountId],
-            } as Airtable.FieldSet)
-          }
+      // Get artist email from auth header first, fall back to conversation user_id
+      let artistEmail: string | null = null
+      const rfqAuth = req.headers.get('authorization')
+      if (rfqAuth?.startsWith('Bearer ')) {
+        const { data: rfqUser } = await supabaseAdmin.auth.getUser(rfqAuth.slice(7))
+        artistEmail = rfqUser.user?.email ?? null
+      }
+      if (!artistEmail) {
+        const { data: conv } = await supabaseAdmin.from('conversations').select('user_id').eq('id', conversationId).single()
+        if (conv?.user_id) {
+          const { data: ud } = await supabaseAdmin.auth.admin.getUserById(conv.user_id)
+          artistEmail = ud?.user?.email ?? null
         }
-        // Link Vendors Contacted
-        if (vendorIds?.length > 0) {
-          await base('Projects').update(airtableProjectId, {
-            'fldIHf9NMXMX6p0MQ': vendorIds,
-          } as Airtable.FieldSet)
+      }
+      if (artistEmail && airtableProjectId) {
+        const { getAccountIdByEmail } = await import('@/lib/airtable')
+        const accountId = await getAccountIdByEmail(artistEmail)
+        if (accountId) {
+          await base('Projects').update(airtableProjectId, { 'fldiIKuIYg3ZUFb4j': [accountId] } as Airtable.FieldSet)
+          await base('RFQs').update(rfqId, { 'fldHzowEvX6pIC0rR': [accountId] } as Airtable.FieldSet)
         }
+      }
+      // Link Vendors Contacted regardless of account
+      if (airtableProjectId && vendorIds?.length > 0) {
+        await base('Projects').update(airtableProjectId, { 'fldIHf9NMXMX6p0MQ': vendorIds } as Airtable.FieldSet)
       }
     } catch (linkErr) {
       console.error('[RFQ] Account/vendor linking failed:', linkErr)
