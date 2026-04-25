@@ -86,9 +86,11 @@ export default function RFQReview({ snapshot, scopeDocument, conversationId, onC
           body:    JSON.stringify({ vendorId: v.id, vendorName: v.name, action: 'Excluded', reason: 'Manually unchecked in RFQ Review', projectType: snapshot.projectType || '' }),
         }).catch(() => {})
       }
+      const { data: sessionData } = await (await import('@/lib/supabase')).supabase.auth.getSession()
+      const token = sessionData.session?.access_token
       const res = await fetch('/api/rfq', {
         method:  'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + (token ?? '') },
         body:    JSON.stringify({ conversationId, projectName, scopeDocument: scope, vendorIds: Array.from(selectedVendors), vendorNames: selectedList.map((v) => v.name) }),
       })
       const data = await res.json()
