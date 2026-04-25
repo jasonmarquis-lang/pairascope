@@ -51,6 +51,7 @@ export async function POST(req: NextRequest) {
         'Scope Document': scopeDocument,
         'Date Issued':    today,
         'Status':         'Sent',
+        ...(airtableProjectId ? { 'fldY2VJ9R8q2WZrrT': [airtableProjectId] } : {}),
       } as Airtable.FieldSet)
       rfqId = rfqRecord.getId()
     } catch (rfqErr) {
