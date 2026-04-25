@@ -116,10 +116,10 @@ export async function POST(req: NextRequest) {
           const accountId = await getAccountIdByEmail(artistEmail)
           if (accountId) {
             await base('Projects').update(airtableProjectId, {
-              'fldiIKuIYg3ZUFb4j': [{ id: accountId }],
+              'fldiIKuIYg3ZUFb4j': [{ id: accountId }] as unknown as string[],
             } as Airtable.FieldSet)
             await base('RFQs').update(rfqId, {
-              'fldHzowEvX6pIC0rR': [{ id: accountId }],
+              'fldHzowEvX6pIC0rR': [{ id: accountId }] as unknown as string[],
             } as Airtable.FieldSet)
           }
         }
