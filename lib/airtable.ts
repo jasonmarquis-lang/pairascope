@@ -71,8 +71,7 @@ export async function createProjectRecord(params: {
     }
     fields[P.confidenceLevel] = (snapshot.confidenceScore || 0) / 100
 
-    if (artistName)  fields[P.artistName]  = artistName
-    if (artistEmail) fields[P.artistEmail] = artistEmail
+// Artist name/email linked via Account record instead
     const VALID_SERVICES = ['Fabrication', 'Crating', 'Shipping', 'Installation', 'Preservation']
     const validServices = (snapshot.services || []).filter((s: string) => VALID_SERVICES.includes(s))
     if (validServices.length) fields[P.services] = validServices
