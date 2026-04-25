@@ -80,8 +80,18 @@ export async function createProjectRecord(params: {
     const projectTypeValue = VALID_PROJECT_TYPES.includes(snapshot.projectType || '') ? [snapshot.projectType] : []
     if (projectTypeValue.length) fields[P.projectType] = projectTypeValue
 
-    const record = await base(TABLES.PROJECTS).create(fields as Airtable.FieldSet)
-    return record.getId()
+    // Check if record already exists for this conversation
+    const existing = await base(TABLES.PROJECTS)
+      .select({ filterByFormula: `{Supabase Conversation ID} = "${conversationId}"`, maxRecords: 1 })
+      .all()
+
+    if (existing.length > 0) {
+      await base(TABLES.PROJECTS).update(existing[0].getId(), fields as Airtable.FieldSet)
+      return existing[0].getId()
+    } else {
+      const record = await base(TABLES.PROJECTS).create(fields as Airtable.FieldSet)
+      return record.getId()
+    }
   } catch (err) {
     console.error('[Airtable] createProjectRecord failed:', JSON.stringify(err))
     return null

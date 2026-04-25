@@ -206,7 +206,7 @@ export async function POST(req: NextRequest) {
           // Only push to Airtable when we have meaningful data (yellow or green)
           if (snapshot.confidenceLevel !== 'red' && latestUserMessage.content) {
             await createProjectRecord({
-              inputText:      latestUserMessage.content,
+              inputText:      messages.filter((m) => m.role === "user").map((m) => m.content).join(" | "),
               snapshot,
               conversationId,
             })

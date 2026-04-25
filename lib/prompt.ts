@@ -194,6 +194,12 @@ Confidence scoring rules:
 
 Be strict. Only mark GREEN when budget has been discussed and all primary fields for the specific service track are known.
 
+IMPORTANT: If the assistant's most recent message contains a formatted scope document (identified by section headers like PROJECT OVERVIEW, SCOPE DETAILS, DELIVERABLES, ASSUMPTIONS, or REQUEST), this means the project scope is complete. In this case:
+- Set confidenceScore to 85 or higher
+- Set confidenceLevel to 'green'
+- Extract all fields directly from the scope document content
+- Do NOT reset fields to null just because the scope document looks different from normal conversation
+
 Conversation to analyze:
 ${conversation}`
 }
