@@ -4,7 +4,6 @@ import { supabaseAdmin } from '@/lib/supabase'
 
 const base = new Airtable({ apiKey: process.env.AIRTABLE_API_KEY! }).base(process.env.AIRTABLE_BASE_ID!)
 
-// Accounts table field IDs
 const A = {
   fullName:   'fldbPiuuDL1ETs4cX',
   email:      'fldvjFGBCMLpwwo8h',
@@ -64,12 +63,9 @@ export async function GET(req: NextRequest) {
     const email = userData.user?.email
     if (!email) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
+    // Fetch without specifying fields — get everything
     const records = await base('Accounts')
-      .select({
-        filterByFormula: `{Email} = "${email}"`,
-        maxRecords: 1,
-        fields: Object.values(A),
-      })
+      .select({ filterByFormula: `{Email} = "${email}"`, maxRecords: 1 })
       .all()
 
     if (!records.length) return NextResponse.json({ account: null })

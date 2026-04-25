@@ -19,28 +19,28 @@ const HOW_FOUND_OPTIONS = [
 
 export default function AccountPage() {
   const router = useRouter()
-  const [loading,      setLoading]      = useState(true)
-  const [saving,       setSaving]       = useState(false)
-  const [saved,        setSaved]        = useState(false)
-  const [error,        setError]        = useState('')
-  const [email,        setEmail]        = useState('')
-  const [pwSaving,     setPwSaving]     = useState(false)
-  const [pwSaved,      setPwSaved]      = useState(false)
-  const [pwError,      setPwError]      = useState('')
-  const [newPassword,  setNewPassword]  = useState('')
-  const [confirmPw,    setConfirmPw]    = useState('')
+  const [loading,     setLoading]     = useState(true)
+  const [saving,      setSaving]      = useState(false)
+  const [saved,       setSaved]       = useState(false)
+  const [error,       setError]       = useState('')
+  const [email,       setEmail]       = useState('')
+  const [pwSaving,    setPwSaving]    = useState(false)
+  const [pwSaved,     setPwSaved]     = useState(false)
+  const [pwError,     setPwError]     = useState('')
+  const [newPassword, setNewPassword] = useState('')
+  const [confirmPw,   setConfirmPw]   = useState('')
 
-  const [firstName,   setFirstName]   = useState('')
-  const [lastName,    setLastName]    = useState('')
-  const [company,     setCompany]     = useState('')
-  const [phone,       setPhone]       = useState('')
-  const [street,      setStreet]      = useState('')
-  const [city,        setCity]        = useState('')
-  const [state,       setState]       = useState('')
-  const [postalCode,  setPostalCode]  = useState('')
-  const [country,     setCountry]     = useState('')
-  const [website,     setWebsite]     = useState('')
-  const [howFoundUs,  setHowFoundUs]  = useState('')
+  const [firstName,  setFirstName]  = useState('')
+  const [lastName,   setLastName]   = useState('')
+  const [company,    setCompany]    = useState('')
+  const [phone,      setPhone]      = useState('')
+  const [street,     setStreet]     = useState('')
+  const [city,       setCity]       = useState('')
+  const [state,      setState]      = useState('')
+  const [postalCode, setPostalCode] = useState('')
+  const [country,    setCountry]    = useState('')
+  const [website,    setWebsite]    = useState('')
+  const [howFoundUs, setHowFoundUs] = useState('')
 
   useEffect(() => {
     const load = async () => {
@@ -108,16 +108,15 @@ export default function AccountPage() {
 
   const handlePasswordReset = async () => {
     setPwError(''); setPwSaved(false)
-    if (!newPassword) { setPwError('Please enter a new password.'); return }
-    if (newPassword.length < 8) { setPwError('Password must be at least 8 characters.'); return }
+    if (!newPassword)              { setPwError('Please enter a new password.'); return }
+    if (newPassword.length < 8)    { setPwError('Password must be at least 8 characters.'); return }
     if (newPassword !== confirmPw) { setPwError('Passwords do not match.'); return }
     setPwSaving(true)
     try {
       const { error } = await supabase.auth.updateUser({ password: newPassword })
       if (error) throw error
       setPwSaved(true)
-      setNewPassword('')
-      setConfirmPw('')
+      setNewPassword(''); setConfirmPw('')
       setTimeout(() => setPwSaved(false), 3000)
     } catch (err: unknown) {
       setPwError(err instanceof Error ? err.message : 'Failed to update password.')
@@ -235,18 +234,7 @@ export default function AccountPage() {
             </div>
           </div>
 
-          {/* Save profile */}
-          {error && <p style={{ fontSize: 13, color: '#E24B4A', marginBottom: 12 }}>{error}</p>}
-          {saved && <p style={{ fontSize: 13, color: 'var(--ps-teal)', marginBottom: 12 }}>Changes saved successfully.</p>}
-          <button
-            onClick={handleSave}
-            disabled={saving}
-            style={{ width: '100%', padding: '12px 0', backgroundColor: saving ? 'rgba(29,158,117,0.5)' : 'var(--ps-teal)', color: 'white', border: 'none', borderRadius: 10, fontSize: 14, fontWeight: 500, cursor: saving ? 'default' : 'pointer', fontFamily: 'inherit', marginBottom: 32 }}
-          >
-            {saving ? 'Saving...' : 'Save changes'}
-          </button>
-
-          {/* Password reset */}
+          {/* Change password */}
           <div style={sectionStyle}>
             <h2 style={{ fontSize: 14, fontWeight: 500, color: 'var(--ps-white)', margin: '0 0 20px' }}>Change password</h2>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -269,6 +257,17 @@ export default function AccountPage() {
               </button>
             </div>
           </div>
+
+          {/* Save all changes — at the bottom */}
+          {error && <p style={{ fontSize: 13, color: '#E24B4A', marginBottom: 12 }}>{error}</p>}
+          {saved && <p style={{ fontSize: 13, color: 'var(--ps-teal)', marginBottom: 12 }}>Changes saved successfully.</p>}
+          <button
+            onClick={handleSave}
+            disabled={saving}
+            style={{ width: '100%', padding: '12px 0', backgroundColor: saving ? 'rgba(29,158,117,0.5)' : 'var(--ps-teal)', color: 'white', border: 'none', borderRadius: 10, fontSize: 14, fontWeight: 500, cursor: saving ? 'default' : 'pointer', fontFamily: 'inherit' }}
+          >
+            {saving ? 'Saving...' : 'Save changes'}
+          </button>
 
         </div>
       </main>
