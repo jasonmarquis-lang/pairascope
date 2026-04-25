@@ -153,7 +153,7 @@ export async function POST(req: NextRequest) {
     // Save bid
     const { data: bid, error: bidError } = await supabaseAdmin
       .from('bids')
-      .upsert({ rfq_id: rfqId, vendor_id: userId, vendor_name: vendorName, price_low: priceLow ?? null, price_high: priceHigh ?? null, timeline, assumptions: assumptions || null, notes: notes || null, status: 'Submitted' }, { onConflict: 'rfq_id,vendor_id' })
+      .upsert({ rfq_id: rfqId, vendor_id: userId, vendor_name: vendorName, price_low: priceLow ?? null, price_high: priceHigh ?? null, timeline, assumptions: assumptions || null, notes: notes || null, status: 'Submitted' })
       .select()
       .single()
 
@@ -161,15 +161,15 @@ export async function POST(req: NextRequest) {
 
     // Save to Airtable
     try {
+      const today = new Date().toISOString().split('T')[0]
       await base('Responses').create({
-        'RFQ ID':      rfqId,
-        'Vendor Name': vendorName,
-        'Price Low':   priceLow ?? 0,
-        'Price High':  priceHigh ?? 0,
-        'Timeline':    timeline,
-        'Assumptions': assumptions || '',
-        'Notes':       notes || '',
-        'Status':      'Submitted',
+        'fldJX1eQxWeDiiBBi': vendorName + ' \u2013 ' + rfqId.slice(0,8),
+        'fldJoIj3fSqrPpv50': priceLow ?? 0,
+        'fldoDIEipxq8dSmXn': priceHigh ?? 0,
+        'fld9u1CNDDYla24mQ': assumptions || '',
+        'fldweU5X04jQvvQiP': notes || '',
+        'fldoRrKQdMUUBsKfs': 'Under Review',
+        'flduY895gaf5M371G': today,
       } as Airtable.FieldSet)
     } catch (airtableErr) {
       console.error('[/api/bids] Airtable error:', airtableErr)
