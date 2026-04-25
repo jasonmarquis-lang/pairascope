@@ -18,14 +18,18 @@ const HOW_FOUND_OPTIONS = [
 ]
 
 export default function AccountPage() {
-  const router  = useRouter()
-  const [loading,   setLoading]   = useState(true)
-  const [saving,    setSaving]    = useState(false)
-  const [saved,     setSaved]     = useState(false)
-  const [error,     setError]     = useState('')
-  const [email,     setEmail]     = useState('')
+  const router = useRouter()
+  const [loading,      setLoading]      = useState(true)
+  const [saving,       setSaving]       = useState(false)
+  const [saved,        setSaved]        = useState(false)
+  const [error,        setError]        = useState('')
+  const [email,        setEmail]        = useState('')
+  const [pwSaving,     setPwSaving]     = useState(false)
+  const [pwSaved,      setPwSaved]      = useState(false)
+  const [pwError,      setPwError]      = useState('')
+  const [newPassword,  setNewPassword]  = useState('')
+  const [confirmPw,    setConfirmPw]    = useState('')
 
-  // Form fields
   const [firstName,   setFirstName]   = useState('')
   const [lastName,    setLastName]    = useState('')
   const [company,     setCompany]     = useState('')
@@ -47,12 +51,10 @@ export default function AccountPage() {
       const token = sessionData.session.access_token
       setEmail(user.email ?? '')
 
-      // Pre-fill name from Supabase metadata
       const meta = user.user_metadata ?? {}
       setFirstName(meta.first_name ?? '')
       setLastName(meta.last_name  ?? '')
 
-      // Load existing Airtable account data
       try {
         const res  = await fetch('/api/account', {
           headers: { 'Authorization': 'Bearer ' + token },
@@ -64,15 +66,11 @@ export default function AccountPage() {
           if (a.phone)      setPhone(a.phone)
           if (a.website)    setWebsite(a.website)
           if (a.howFoundUs) setHowFoundUs(a.howFoundUs)
-          // Parse location back into parts if stored as combined string
-          if (a.location) {
-            const parts = a.location.split(', ')
-            if (parts.length >= 1) setStreet(parts[0]   ?? '')
-            if (parts.length >= 2) setCity(parts[1]     ?? '')
-            if (parts.length >= 3) setState(parts[2]    ?? '')
-            if (parts.length >= 4) setPostalCode(parts[3] ?? '')
-            if (parts.length >= 5) setCountry(parts[4]  ?? '')
-          }
+          if (a.street)     setStreet(a.street)
+          if (a.city)       setCity(a.city)
+          if (a.state)      setState(a.state)
+          if (a.postalCode) setPostalCode(a.postalCode)
+          if (a.country)    setCountry(a.country)
         }
       } catch { /* silently fail */ }
 
@@ -88,30 +86,15 @@ export default function AccountPage() {
       const token  = sessionData.session?.access_token
       const userId = sessionData.session?.user.id
 
-      // Update Supabase user metadata
       const displayName = [firstName, lastName].filter(Boolean).join(' ')
       await supabase.auth.updateUser({
         data: { first_name: firstName, last_name: lastName, display_name: displayName || email.split('@')[0] }
       })
 
-      // Save to Airtable via API
       const res = await fetch('/api/account', {
         method:  'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
-        body:    JSON.stringify({
-          userId,
-          email,
-          fullName: displayName,
-          company,
-          phone,
-          street,
-          city,
-          state,
-          postalCode,
-          country,
-          website,
-          howFoundUs,
-        }),
+        body:    JSON.stringify({ userId, email, fullName: displayName, company, phone, street, city, state, postalCode, country, website, howFoundUs }),
       })
       if (!res.ok) throw new Error('Failed to save')
       setSaved(true)
@@ -120,6 +103,26 @@ export default function AccountPage() {
       setError(err instanceof Error ? err.message : 'Failed to save. Please try again.')
     } finally {
       setSaving(false)
+    }
+  }
+
+  const handlePasswordReset = async () => {
+    setPwError(''); setPwSaved(false)
+    if (!newPassword) { setPwError('Please enter a new password.'); return }
+    if (newPassword.length < 8) { setPwError('Password must be at least 8 characters.'); return }
+    if (newPassword !== confirmPw) { setPwError('Passwords do not match.'); return }
+    setPwSaving(true)
+    try {
+      const { error } = await supabase.auth.updateUser({ password: newPassword })
+      if (error) throw error
+      setPwSaved(true)
+      setNewPassword('')
+      setConfirmPw('')
+      setTimeout(() => setPwSaved(false), 3000)
+    } catch (err: unknown) {
+      setPwError(err instanceof Error ? err.message : 'Failed to update password.')
+    } finally {
+      setPwSaving(false)
     }
   }
 
@@ -223,11 +226,7 @@ export default function AccountPage() {
             <h2 style={{ fontSize: 14, fontWeight: 500, color: 'var(--ps-white)', margin: '0 0 20px' }}>How did you find Pairascope?</h2>
             <div>
               <label style={labelStyle}>Source <span style={{ color: 'rgba(136,135,128,0.5)' }}>optional</span></label>
-              <select
-                value={howFoundUs}
-                onChange={(e) => setHowFoundUs(e.target.value)}
-                style={{ ...inputStyle, cursor: 'pointer' }}
-              >
+              <select value={howFoundUs} onChange={(e) => setHowFoundUs(e.target.value)} style={{ ...inputStyle, cursor: 'pointer' }}>
                 <option value="">Select an option...</option>
                 {HOW_FOUND_OPTIONS.map((opt) => (
                   <option key={opt} value={opt}>{opt}</option>
@@ -236,17 +235,41 @@ export default function AccountPage() {
             </div>
           </div>
 
-          {/* Save button */}
+          {/* Save profile */}
           {error && <p style={{ fontSize: 13, color: '#E24B4A', marginBottom: 12 }}>{error}</p>}
           {saved && <p style={{ fontSize: 13, color: 'var(--ps-teal)', marginBottom: 12 }}>Changes saved successfully.</p>}
-
           <button
             onClick={handleSave}
             disabled={saving}
-            style={{ width: '100%', padding: '12px 0', backgroundColor: saving ? 'rgba(29,158,117,0.5)' : 'var(--ps-teal)', color: 'white', border: 'none', borderRadius: 10, fontSize: 14, fontWeight: 500, cursor: saving ? 'default' : 'pointer', fontFamily: 'inherit' }}
+            style={{ width: '100%', padding: '12px 0', backgroundColor: saving ? 'rgba(29,158,117,0.5)' : 'var(--ps-teal)', color: 'white', border: 'none', borderRadius: 10, fontSize: 14, fontWeight: 500, cursor: saving ? 'default' : 'pointer', fontFamily: 'inherit', marginBottom: 32 }}
           >
             {saving ? 'Saving...' : 'Save changes'}
           </button>
+
+          {/* Password reset */}
+          <div style={sectionStyle}>
+            <h2 style={{ fontSize: 14, fontWeight: 500, color: 'var(--ps-white)', margin: '0 0 20px' }}>Change password</h2>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+              <div>
+                <label style={labelStyle}>New password</label>
+                <input type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} placeholder="At least 8 characters" style={inputStyle} />
+              </div>
+              <div>
+                <label style={labelStyle}>Confirm new password</label>
+                <input type="password" value={confirmPw} onChange={(e) => setConfirmPw(e.target.value)} placeholder="Repeat new password" style={inputStyle} />
+              </div>
+              {pwError && <p style={{ fontSize: 13, color: '#E24B4A', margin: 0 }}>{pwError}</p>}
+              {pwSaved && <p style={{ fontSize: 13, color: 'var(--ps-teal)', margin: 0 }}>Password updated successfully.</p>}
+              <button
+                onClick={handlePasswordReset}
+                disabled={pwSaving}
+                style={{ padding: '10px 20px', backgroundColor: 'transparent', color: 'var(--ps-text)', border: '0.5px solid var(--ps-border)', borderRadius: 8, fontSize: 13, cursor: pwSaving ? 'default' : 'pointer', fontFamily: 'inherit', alignSelf: 'flex-start' }}
+              >
+                {pwSaving ? 'Updating...' : 'Update password'}
+              </button>
+            </div>
+          </div>
+
         </div>
       </main>
     </>
