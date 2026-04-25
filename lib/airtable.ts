@@ -73,6 +73,10 @@ export async function createProjectRecord(params: {
       [P.aiSummary]:       snapshot.aiSummary    || '',
     }
     fields[P.confidenceLevel] = (snapshot.confidenceScore || 0) / 100
+    const snap = snapshot as Record<string, unknown>
+    if (snap.deadline && typeof snap.deadline === 'string' && snap.deadline.match(/^\d{4}-\d{2}-\d{2}$/)) {
+      fields[P.deadline] = snap.deadline
+    }
 
 // Artist name/email linked via Account record instead
     const VALID_SERVICES = ['Fabrication', 'Crating', 'Shipping', 'Installation', 'Preservation']
