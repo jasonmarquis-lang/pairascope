@@ -68,8 +68,8 @@ export async function createProjectRecord(params: {
       [P.budgetRange]:     snapshot.budgetRange  || '',
       [P.missingInfo]:     (snapshot.missingInfo || []).join('\n'),
       [P.aiSummary]:       snapshot.aiSummary    || '',
-      fields[P.confidenceLevel] = (snapshot.confidenceScore || 0) / 100
     }
+    fields[P.confidenceLevel] = (snapshot.confidenceScore || 0) / 100
 
     if (artistName)  fields[P.artistName]  = artistName
     if (artistEmail) fields[P.artistEmail] = artistEmail
