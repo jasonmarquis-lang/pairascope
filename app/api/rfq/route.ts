@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import Airtable from 'airtable'
 import { sendRFQToVendor, sendAdminErrorEmail } from '@/lib/email'
-import { logError } from '@/lib/airtable'
+import { logError, getAccountIdByEmail } from '@/lib/airtable'
 import { supabaseAdmin } from '@/lib/supabase'
 import * as postmark from 'postmark'
 

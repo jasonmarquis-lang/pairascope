@@ -186,3 +186,17 @@ export async function logError(title: string, detail: string, severity: 'Critica
 }
 
 export { base, TABLES }
+
+// ─── Look up Account record ID by email ────────────────────────────────────
+
+export async function getAccountIdByEmail(email: string): Promise<string | null> {
+  try {
+    const records = await base('Accounts')
+      .select({ filterByFormula: `{Email} = "${email}"`, maxRecords: 1 })
+      .all()
+    return records[0]?.getId() ?? null
+  } catch (err) {
+    console.error('[Airtable] getAccountIdByEmail failed:', err)
+    return null
+  }
+}
