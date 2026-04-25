@@ -10,9 +10,13 @@ const A = {
   userId:     'fld9t2PM9fCfzGrp7',
   company:    'fldEOggjVD7aSjffX',
   phone:      'fldszQgrULXRlKkRW',
-  location:   'fldC424jCX4u9M4MR',
   website:    'fldBveiqEkNoTglvt',
   howFoundUs: 'fldfassYVNLG0Ym5u',
+  street:     'fldbYUZlVPLfN8cWE',
+  city:       'fldllCyMs9awJhtYv',
+  state:      'fld0jcvLAoCrnGgN9',
+  postalCode: 'fldQmIDSWWSEDnu9k',
+  country:    'fldULQgQatLqabG4a',
 }
 
 export async function POST(req: NextRequest) {
@@ -22,9 +26,6 @@ export async function POST(req: NextRequest) {
 
     if (!email) return NextResponse.json({ error: 'Email required' }, { status: 400 })
 
-    const locationParts = [street, city, state, postalCode, country].filter(Boolean)
-    const location = locationParts.join(', ')
-
     const fields: Airtable.FieldSet = {
       [A.email]:    email,
       [A.userId]:   userId || '',
@@ -33,9 +34,18 @@ export async function POST(req: NextRequest) {
 
     if (company)    fields[A.company]    = company
     if (phone)      fields[A.phone]      = phone
-    if (location)   fields[A.location]   = location
-    if (website)    fields[A.website]    = website
+    if (street)     fields[A.street]     = street
+    if (city)       fields[A.city]       = city
+    if (state)      fields[A.state]      = state
+    if (postalCode) fields[A.postalCode] = postalCode
+    if (country)    fields[A.country]    = country
     if (howFoundUs) fields[A.howFoundUs] = howFoundUs
+
+    // Only set website if it looks like a URL
+    if (website) {
+      const url = website.startsWith('http') ? website : `https://${website}`
+      fields[A.website] = url
+    }
 
     const existing = await base('Accounts')
       .select({ filterByFormula: `{Email} = "${email}"`, maxRecords: 1 })
@@ -63,17 +73,13 @@ export async function GET(req: NextRequest) {
     const email = userData.user?.email
     if (!email) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-    // Fetch without specifying fields — get everything
     const records = await base('Accounts')
       .select({ filterByFormula: `{Email} = "${email}"`, maxRecords: 1 })
       .all()
 
     if (!records.length) return NextResponse.json({ account: null })
 
-    const r        = records[0]
-    const location = (r.get(A.location) as string) ?? ''
-    const parts    = location.split(', ')
-
+    const r = records[0]
     return NextResponse.json({
       account: {
         fullName:   (r.get(A.fullName)   as string) ?? '',
@@ -82,11 +88,11 @@ export async function GET(req: NextRequest) {
         phone:      (r.get(A.phone)      as string) ?? '',
         website:    (r.get(A.website)    as string) ?? '',
         howFoundUs: (r.get(A.howFoundUs) as string) ?? '',
-        street:     parts[0] ?? '',
-        city:       parts[1] ?? '',
-        state:      parts[2] ?? '',
-        postalCode: parts[3] ?? '',
-        country:    parts[4] ?? '',
+        street:     (r.get(A.street)     as string) ?? '',
+        city:       (r.get(A.city)       as string) ?? '',
+        state:      (r.get(A.state)      as string) ?? '',
+        postalCode: (r.get(A.postalCode) as string) ?? '',
+        country:    (r.get(A.country)    as string) ?? '',
       },
     })
   } catch (err) {
