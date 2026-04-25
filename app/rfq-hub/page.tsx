@@ -35,7 +35,7 @@ const STATUS_STYLES: Record<string, { color: string; bg: string }> = {
   'Draft':              { color: 'var(--ps-muted)', bg: 'rgba(136,135,128,0.1)'  },
   'Sent':               { color: '#EF9F27',          bg: 'rgba(239,159,39,0.1)'   },
   'Estimates Received': { color: '#1D9E75',           bg: 'rgba(29,158,117,0.1)'  },
-  'Closed':             { color: 'var(--ps-muted)', bg: 'rgba(136,135,128,0.08)' },
+  'Closed':             { color: 'var(--ps-muted)',  bg: 'rgba(136,135,128,0.08)' },
 }
 
 const VENDOR_STATUS_STYLES: Record<string, { color: string; bg: string }> = {
@@ -43,6 +43,11 @@ const VENDOR_STATUS_STYLES: Record<string, { color: string; bg: string }> = {
   'Responded': { color: '#1D9E75', bg: 'rgba(29,158,117,0.08)'  },
   'Declined':  { color: '#E24B4A', bg: 'rgba(226,75,74,0.08)'   },
   'Selected':  { color: '#1D9E75', bg: 'rgba(29,158,117,0.15)'  },
+}
+
+async function getSessionToken(): Promise<string> {
+  const { data } = await supabase.auth.getSession()
+  return data.session?.access_token ?? ''
 }
 
 export default function RFQHubPage() {
@@ -74,10 +79,9 @@ export default function RFQHubPage() {
             }
           } catch { /* ignore */ }
         }
-
         setRfqs(rfqList)
       } catch {
-        setError('Could not load your RFQs. Please try again.')
+        setError('Could not load your RFQs.')
       } finally {
         setIsLoading(false)
       }
@@ -85,19 +89,19 @@ export default function RFQHubPage() {
     load()
   }, [router])
 
-  const total    = rfqs.length
-  const sent     = rfqs.filter((r) => r.status === 'Sent').length
-  const received = rfqs.filter((r) => r.status === 'Estimates Received').length
-
   const handleContinue = (rfq: RFQRecord) => {
     try {
       sessionStorage.setItem('ps_conversation', JSON.stringify({
         conversationId: rfq.conversation_id,
-        messages: [], snapshot: null, started: false, restoreId: rfq.conversation_id,
+        messages: [], snapshot: null, started: false,
       }))
     } catch { /* ignore */ }
     router.push('/?conversationId=' + rfq.conversation_id)
   }
+
+  const total    = rfqs.length
+  const sent     = rfqs.filter((r) => r.status === 'Sent').length
+  const received = rfqs.filter((r) => r.status === 'Estimates Received').length
 
   return (
     <>
@@ -137,7 +141,9 @@ export default function RFQHubPage() {
 
           {!isLoading && rfqs.length > 0 && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-              {rfqs.map((rfq) => <RFQRow key={rfq.id} rfq={rfq} onContinue={() => handleContinue(rfq)} />)}
+              {rfqs.map((rfq) => (
+                <RFQRow key={rfq.id} rfq={rfq} onContinue={() => handleContinue(rfq)} />
+              ))}
             </div>
           )}
         </div>
@@ -147,39 +153,28 @@ export default function RFQHubPage() {
 }
 
 function RFQRow({ rfq, onContinue }: { rfq: RFQRecord; onContinue: () => void }) {
-  const router                  = useRouter()
-  const [expanded,  setExpanded]  = useState(false)
-  const [bids,      setBids]      = useState<BidRecord[]>([])
+  const router                    = useRouter()
+  const [expanded,   setExpanded]  = useState(false)
+  const [bids,       setBids]      = useState<BidRecord[]>([])
   const [bidsLoaded, setBidsLoaded] = useState(false)
-  const [selecting, setSelecting] = useState<string | null>(null)
-  const [dealDone,  setDealDone]  = useState(false)
+  const [selecting,  setSelecting] = useState<string | null>(null)
+  const [dealDone,   setDealDone]  = useState(false)
 
   const style      = STATUS_STYLES[rfq.status] ?? STATUS_STYLES['Draft']
   const date       = new Date(rfq.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
-  const vendorList = rfq.vendor_names ? rfq.vendor_names.split(',').map((v) => v.trim()).filter(Boolean) : []
+  const vendorList = rfq.vendor_names
+    ? rfq.vendor_names.split(',').map((v) => v.trim()).filter(Boolean)
+    : []
 
   const handleExpand = async () => {
-    setExpanded((e) => !e)
-    if (!bidsLoaded) {
+    const nowExpanded = !expanded
+    setExpanded(nowExpanded)
+    if (nowExpanded && !bidsLoaded) {
       try {
-        const res  = await fetch('/api/bids?rfqId=' + rfq.id)
-        const data = await res.json()
-        // Get all bids for vendors in this RFQ
-        const { data: sessionData } = await (await import('@/lib/supabase')).supabase.auth.getSession()
-        const token = sessionData.session?.access_token
-        if (token) {
-          const bidsRes  = await fetch('/api/bids?rfqId=' + rfq.id, { headers: { 'Authorization': 'Bearer ' + token } })
-          const bidsData = await bidsRes.json()
-          // Fetch all bids from Supabase for this RFQ
-          const { supabaseAdmin } = await import('@/lib/supabase')
-        }
-      } catch { /* silently fail */ }
-
-      // Fetch bids from Supabase directly via API
-      try {
-        const { data: sessionData } = await (await import('@/lib/supabase')).supabase.auth.getSession()
-        const token = sessionData.session?.access_token
-        const res   = await fetch('/api/rfq-bids?rfqId=' + rfq.id, { headers: { 'Authorization': 'Bearer ' + (token ?? '') } })
+        const token = await getSessionToken()
+        const res   = await fetch('/api/rfq-bids?rfqId=' + rfq.id, {
+          headers: { 'Authorization': 'Bearer ' + token },
+        })
         if (res.ok) {
           const data = await res.json()
           setBids(data.bids ?? [])
@@ -192,18 +187,23 @@ function RFQRow({ rfq, onContinue }: { rfq: RFQRecord; onContinue: () => void })
   const handleSelectVendor = async (bid: BidRecord) => {
     setSelecting(bid.id)
     try {
-      const { data: sessionData } = await (await import('@/lib/supabase')).supabase.auth.getSession()
-      const token = sessionData.session?.access_token
-      const res = await fetch('/api/deals', {
+      const token = await getSessionToken()
+      const res   = await fetch('/api/deals', {
         method:  'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + (token ?? '') },
-        body:    JSON.stringify({ rfqId: rfq.id, vendorName: bid.vendor_name, bidId: bid.id, projectName: rfq.project_name, priceAccepted: bid.price_high }),
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+        body:    JSON.stringify({
+          rfqId:         rfq.id,
+          vendorName:    bid.vendor_name,
+          bidId:         bid.id,
+          projectName:   rfq.project_name,
+          priceAccepted: bid.price_high,
+        }),
       })
       const data = await res.json()
-      if (!res.ok) throw new Error(data.error || 'Failed to create deal')
+      if (!res.ok) throw new Error(data.error || 'Failed')
       setDealDone(true)
     } catch (err) {
-      console.error('[RFQ Hub] Select vendor error:', err)
+      console.error('[RFQ Hub] Select vendor failed:', err)
     } finally {
       setSelecting(null)
     }
@@ -211,225 +211,8 @@ function RFQRow({ rfq, onContinue }: { rfq: RFQRecord; onContinue: () => void })
 
   return (
     <div style={{ backgroundColor: 'var(--ps-surface)', border: '0.5px solid var(--ps-border)', borderRadius: 10, overflow: 'hidden' }}>
-      <div onClick={handleExpand} style={{ padding: '16px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer' }}>
-        <div style={{ display: 'flex', alignItems:
 
-ll
-terminal
-cat > ~/Desktop/pairascope/app/rfq-hub/page.tsx << 'ENDOFFILE'
-'use client'
-
-import { useEffect, useState } from 'react'
-import { useRouter } from 'next/navigation'
-import { supabase } from '@/lib/supabase'
-import Nav from '@/components/ui/Nav'
-
-interface BidRecord {
-  id:          string
-  vendor_name: string
-  price_low:   number | null
-  price_high:  number | null
-  timeline:    string | null
-  assumptions: string | null
-  notes:       string | null
-  status:      string
-  created_at:  string
-}
-
-interface RFQRecord {
-  id:                string
-  project_name:      string
-  project_id:        string
-  scope_document:    string
-  status:            string
-  vendors_contacted: number
-  vendor_names:      string
-  vendor_ids:        string[]
-  vendor_statuses:   Record<string, string> | null
-  conversation_id:   string
-  created_at:        string
-}
-
-const STATUS_STYLES: Record<string, { color: string; bg: string }> = {
-  'Draft':              { color: 'var(--ps-muted)', bg: 'rgba(136,135,128,0.1)'  },
-  'Sent':               { color: '#EF9F27',          bg: 'rgba(239,159,39,0.1)'   },
-  'Estimates Received': { color: '#1D9E75',           bg: 'rgba(29,158,117,0.1)'  },
-  'Closed':             { color: 'var(--ps-muted)', bg: 'rgba(136,135,128,0.08)' },
-}
-
-const VENDOR_STATUS_STYLES: Record<string, { color: string; bg: string }> = {
-  'Pending':   { color: '#EF9F27', bg: 'rgba(239,159,39,0.08)'  },
-  'Responded': { color: '#1D9E75', bg: 'rgba(29,158,117,0.08)'  },
-  'Declined':  { color: '#E24B4A', bg: 'rgba(226,75,74,0.08)'   },
-  'Selected':  { color: '#1D9E75', bg: 'rgba(29,158,117,0.15)'  },
-}
-
-export default function RFQHubPage() {
-  const router = useRouter()
-  const [rfqs,      setRfqs]      = useState<RFQRecord[]>([])
-  const [isLoading, setIsLoading] = useState(true)
-  const [error,     setError]     = useState('')
-
-  useEffect(() => {
-    const load = async () => {
-      const { data: sessionData } = await supabase.auth.getSession()
-      if (!sessionData.session) { router.push('/'); return }
-
-      try {
-        const token = sessionData.session.access_token
-        const res   = await fetch('/api/rfq', { headers: { 'Authorization': 'Bearer ' + token } })
-        const data  = await res.json()
-        let rfqList: RFQRecord[] = data.rfqs ?? []
-
-        if (rfqList.length === 0) {
-          try {
-            const raw    = sessionStorage.getItem('ps_conversation')
-            const parsed = raw ? JSON.parse(raw) : null
-            const convId = parsed?.conversationId
-            if (convId) {
-              const res2  = await fetch('/api/rfq?conversationId=' + convId)
-              const data2 = await res2.json()
-              rfqList = data2.rfqs ?? []
-            }
-          } catch { /* ignore */ }
-        }
-
-        setRfqs(rfqList)
-      } catch {
-        setError('Could not load your RFQs. Please try again.')
-      } finally {
-        setIsLoading(false)
-      }
-    }
-    load()
-  }, [router])
-
-  const total    = rfqs.length
-  const sent     = rfqs.filter((r) => r.status === 'Sent').length
-  const received = rfqs.filter((r) => r.status === 'Estimates Received').length
-
-  const handleContinue = (rfq: RFQRecord) => {
-    try {
-      sessionStorage.setItem('ps_conversation', JSON.stringify({
-        conversationId: rfq.conversation_id,
-        messages: [], snapshot: null, started: false, restoreId: rfq.conversation_id,
-      }))
-    } catch { /* ignore */ }
-    router.push('/?conversationId=' + rfq.conversation_id)
-  }
-
-  return (
-    <>
-      <Nav />
-      <main style={{ paddingTop: 56, minHeight: '100vh' }}>
-        <div style={{ maxWidth: 900, margin: '0 auto', padding: '48px 24px' }}>
-          <div style={{ marginBottom: 36 }}>
-            <h1 style={{ fontSize: '1.75rem', fontWeight: 400, color: 'var(--ps-white)', margin: '0 0 8px' }}>My RFQs</h1>
-            <p style={{ fontSize: 15, color: 'var(--ps-muted)', margin: 0 }}>Track your vendor outreach and proposal status.</p>
-          </div>
-
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 12, marginBottom: 32 }}>
-            {[
-              { label: 'Total RFQs',        value: total    },
-              { label: 'Awaiting responses', value: sent     },
-              { label: 'Estimates received', value: received },
-            ].map(({ label, value }) => (
-              <div key={label} style={{ backgroundColor: 'var(--ps-surface)', border: '0.5px solid var(--ps-border)', borderRadius: 10, padding: '16px 20px' }}>
-                <p style={{ fontSize: 11, color: 'var(--ps-muted)', textTransform: 'uppercase', letterSpacing: '0.07em', margin: '0 0 6px' }}>{label}</p>
-                <p style={{ fontSize: 28, fontWeight: 500, color: 'var(--ps-white)', margin: 0 }}>{value}</p>
-              </div>
-            ))}
-          </div>
-
-          {isLoading && <div style={{ color: 'var(--ps-muted)', textAlign: 'center', padding: 60 }}>Loading...</div>}
-          {error    && <div style={{ color: '#E24B4A', textAlign: 'center', padding: 60 }}>{error}</div>}
-
-          {!isLoading && !error && rfqs.length === 0 && (
-            <div style={{ textAlign: 'center', padding: 60, backgroundColor: 'var(--ps-surface)', border: '0.5px solid var(--ps-border)', borderRadius: 12 }}>
-              <p style={{ fontSize: 16, color: 'var(--ps-text)', marginBottom: 8 }}>No RFQs yet</p>
-              <p style={{ fontSize: 13, color: 'var(--ps-muted)', margin: '0 0 20px' }}>Complete a project conversation and click "Generate RFQ" to send your first one.</p>
-              <button onClick={() => router.push('/')} style={{ padding: '9px 20px', backgroundColor: 'var(--ps-teal)', color: 'white', border: 'none', borderRadius: 8, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}>
-                Start a project →
-              </button>
-            </div>
-          )}
-
-          {!isLoading && rfqs.length > 0 && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-              {rfqs.map((rfq) => <RFQRow key={rfq.id} rfq={rfq} onContinue={() => handleContinue(rfq)} />)}
-            </div>
-          )}
-        </div>
-      </main>
-    </>
-  )
-}
-
-function RFQRow({ rfq, onContinue }: { rfq: RFQRecord; onContinue: () => void }) {
-  const router                  = useRouter()
-  const [expanded,  setExpanded]  = useState(false)
-  const [bids,      setBids]      = useState<BidRecord[]>([])
-  const [bidsLoaded, setBidsLoaded] = useState(false)
-  const [selecting, setSelecting] = useState<string | null>(null)
-  const [dealDone,  setDealDone]  = useState(false)
-
-  const style      = STATUS_STYLES[rfq.status] ?? STATUS_STYLES['Draft']
-  const date       = new Date(rfq.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
-  const vendorList = rfq.vendor_names ? rfq.vendor_names.split(',').map((v) => v.trim()).filter(Boolean) : []
-
-  const handleExpand = async () => {
-    setExpanded((e) => !e)
-    if (!bidsLoaded) {
-      try {
-        const res  = await fetch('/api/bids?rfqId=' + rfq.id)
-        const data = await res.json()
-        // Get all bids for vendors in this RFQ
-        const { data: sessionData } = await (await import('@/lib/supabase')).supabase.auth.getSession()
-        const token = sessionData.session?.access_token
-        if (token) {
-          const bidsRes  = await fetch('/api/bids?rfqId=' + rfq.id, { headers: { 'Authorization': 'Bearer ' + token } })
-          const bidsData = await bidsRes.json()
-          // Fetch all bids from Supabase for this RFQ
-          const { supabaseAdmin } = await import('@/lib/supabase')
-        }
-      } catch { /* silently fail */ }
-
-      // Fetch bids from Supabase directly via API
-      try {
-        const { data: sessionData } = await (await import('@/lib/supabase')).supabase.auth.getSession()
-        const token = sessionData.session?.access_token
-        const res   = await fetch('/api/rfq-bids?rfqId=' + rfq.id, { headers: { 'Authorization': 'Bearer ' + (token ?? '') } })
-        if (res.ok) {
-          const data = await res.json()
-          setBids(data.bids ?? [])
-        }
-      } catch { /* silently fail */ }
-      setBidsLoaded(true)
-    }
-  }
-
-  const handleSelectVendor = async (bid: BidRecord) => {
-    setSelecting(bid.id)
-    try {
-      const { data: sessionData } = await (await import('@/lib/supabase')).supabase.auth.getSession()
-      const token = sessionData.session?.access_token
-      const res = await fetch('/api/deals', {
-        method:  'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + (token ?? '') },
-        body:    JSON.stringify({ rfqId: rfq.id, vendorName: bid.vendor_name, bidId: bid.id, projectName: rfq.project_name, priceAccepted: bid.price_high }),
-      })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error || 'Failed to create deal')
-      setDealDone(true)
-    } catch (err) {
-      console.error('[RFQ Hub] Select vendor error:', err)
-    } finally {
-      setSelecting(null)
-    }
-  }
-
-  return (
-    <div style={{ backgroundColor: 'var(--ps-surface)', border: '0.5px solid var(--ps-border)', borderRadius: 10, overflow: 'hidden' }}>
+      {/* Header row */}
       <div onClick={handleExpand} style={{ padding: '16px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0 }}>
           <span style={{ fontSize: 11, fontWeight: 500, color: style.color, backgroundColor: style.bg, padding: '3px 9px', borderRadius: 20, flexShrink: 0 }}>
@@ -450,7 +233,7 @@ function RFQRow({ rfq, onContinue }: { rfq: RFQRecord; onContinue: () => void })
       {expanded && (
         <div style={{ borderTop: '0.5px solid var(--ps-border)' }}>
 
-          {/* Vendor status list + bids */}
+          {/* Vendor list + bids */}
           {vendorList.length > 0 && (
             <div style={{ padding: '16px 20px', borderBottom: '0.5px solid var(--ps-border)' }}>
               <p style={{ fontSize: 11, color: 'var(--ps-muted)', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 10 }}>Vendors</p>
@@ -459,7 +242,6 @@ function RFQRow({ rfq, onContinue }: { rfq: RFQRecord; onContinue: () => void })
                   const vendorStatus = rfq.vendor_statuses?.[vendorName] ?? 'Pending'
                   const vs           = VENDOR_STATUS_STYLES[vendorStatus] ?? VENDOR_STATUS_STYLES['Pending']
                   const vendorBid    = bids.find((b) => b.vendor_name === vendorName)
-
                   return (
                     <div key={i} style={{ backgroundColor: 'var(--ps-bg)', borderRadius: 8, border: '0.5px solid var(--ps-border)', overflow: 'hidden' }}>
                       <div style={{ padding: '10px 14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -482,15 +264,13 @@ function RFQRow({ rfq, onContinue }: { rfq: RFQRecord; onContinue: () => void })
                           )}
                         </div>
                       </div>
-
-                      {/* Bid details */}
                       {vendorBid && (
                         <div style={{ padding: '10px 14px', borderTop: '0.5px solid var(--ps-border)', backgroundColor: 'rgba(29,158,117,0.03)', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 12 }}>
                           {(vendorBid.price_low || vendorBid.price_high) && (
                             <div>
                               <p style={{ fontSize: 10, color: 'var(--ps-muted)', textTransform: 'uppercase', letterSpacing: '0.07em', margin: '0 0 3px' }}>Price range</p>
                               <p style={{ fontSize: 13, color: 'var(--ps-white)', margin: 0 }}>
-                                {vendorBid.price_low ? `$${vendorBid.price_low.toLocaleString()}` : ''}{vendorBid.price_low && vendorBid.price_high ? ' – ' : ''}{vendorBid.price_high ? `$${vendorBid.price_high.toLocaleString()}` : ''}
+                                {vendorBid.price_low ? `$${Number(vendorBid.price_low).toLocaleString()}` : ''}{vendorBid.price_low && vendorBid.price_high ? ' – ' : ''}{vendorBid.price_high ? `$${Number(vendorBid.price_high).toLocaleString()}` : ''}
                               </p>
                             </div>
                           )}
