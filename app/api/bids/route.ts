@@ -162,7 +162,7 @@ export async function POST(req: NextRequest) {
     // Save to Airtable
     try {
       const today = new Date().toISOString().split('T')[0]
-      await base('Responses').create({
+      await base('Bids').create({
         'fldJX1eQxWeDiiBBi': vendorName + ' \u2013 ' + rfqId.slice(0,8),
         'fldJoIj3fSqrPpv50': priceLow ?? 0,
         'fldoDIEipxq8dSmXn': priceHigh ?? 0,
