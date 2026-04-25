@@ -68,13 +68,15 @@ export async function createProjectRecord(params: {
       [P.budgetRange]:     snapshot.budgetRange  || '',
       [P.missingInfo]:     (snapshot.missingInfo || []).join('\n'),
       [P.aiSummary]:       snapshot.aiSummary    || '',
-      [P.confidenceLevel]: snapshot.confidenceLevel?.toUpperCase() || 'RED',
+      // Confidence Level skipped — singleSelect field has no predefined options
     }
 
     if (artistName)  fields[P.artistName]  = artistName
     if (artistEmail) fields[P.artistEmail] = artistEmail
-    if (snapshot.services?.length)  fields[P.services]    = snapshot.services
-    if (snapshot.projectType)       fields[P.projectType] = [snapshot.projectType]
+    const VALID_SERVICES = ['Fabrication', 'Shipping', 'Installation', 'Design Assist', 'Conservation', 'Crating']
+    const validServices = (snapshot.services || []).filter((s: string) => VALID_SERVICES.includes(s))
+    if (validServices.length) fields[P.services] = validServices
+    // Project Type skipped — multipleSelects field has no predefined options
 
     const record = await base(TABLES.PROJECTS).create(fields as Airtable.FieldSet)
     return record.getId()
