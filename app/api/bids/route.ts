@@ -19,6 +19,10 @@ const B = {
   timeline:    'fldeLaKXoxDLEUHqZ',
   assumptions: 'fld9u1CNDDYla24mQ',
   notes:       'fldweU5X04jQvvQiP',
+  bidType:     'fldBit1Yp7PPbkpJW',
+  firmPrice:   'fldkpO6e8wvUy9gEg',
+  depositAmt:  'fldaVTqkOpXBUijQG',
+  depositPct:  'fldbXKSk7G9afhLW7',
 }
 
 async function getVendorByUser(userId: string, userEmail: string) {
@@ -99,7 +103,7 @@ export async function POST(req: NextRequest) {
     const userEmail = userData.user?.email
     if (!userId || !userEmail) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-    const { rfqId, priceLow, priceHigh, timeline, assumptions, notes } = await req.json()
+    const { rfqId, bidType, priceLow, priceHigh, firmPrice, depositAmount, depositPercentage, timeline, assumptions, notes } = await req.json()
     if (!rfqId || !timeline) return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
 
     const vendor = await getVendorByUser(userId, userEmail)
@@ -110,11 +114,15 @@ export async function POST(req: NextRequest) {
     const { data: bid, error: bidError } = await supabaseAdmin
       .from('bids')
       .upsert({
-        rfq_id:      rfqId,
-        vendor_id:   userId,
-        vendor_name: vendorName,
-        price_low:   priceLow ?? null,
-        price_high:  priceHigh ?? null,
+        rfq_id:             rfqId,
+        vendor_id:          userId,
+        vendor_name:        vendorName,
+        bid_type:           bidType || 'ROM',
+        price_low:          priceLow ?? null,
+        price_high:         priceHigh ?? null,
+        firm_price:         firmPrice ?? null,
+        deposit_amount:     depositAmount ?? null,
+        deposit_percentage: depositPercentage ?? null,
         timeline,
         assumptions: assumptions || null,
         notes:       notes || null,
@@ -135,13 +143,17 @@ export async function POST(req: NextRequest) {
       const bidFields: Airtable.FieldSet = {
         [B.bidName]:     vendorName + ' - ' + ((rfq as Record<string,unknown>)?.project_name ?? rfqId.slice(0, 8)),
         [B.bidStatus]:   'Under Review',
+        [B.bidType]:     bidType || 'ROM',
         [B.dateRcvd]:    today,
         [B.timeline]:    timeline,
         [B.assumptions]: assumptions || '',
         [B.notes]:       notes || '',
       }
-      if (priceLow)         bidFields[B.priceLow]  = Number(priceLow)
-      if (priceHigh)        bidFields[B.priceHigh] = Number(priceHigh)
+      if (priceLow)          bidFields[B.priceLow]    = Number(priceLow)
+      if (priceHigh)         bidFields[B.priceHigh]   = Number(priceHigh)
+      if (firmPrice)         bidFields[B.firmPrice]   = Number(firmPrice)
+      if (depositAmount)     bidFields[B.depositAmt]  = Number(depositAmount)
+      if (depositPercentage) bidFields[B.depositPct]  = Number(depositPercentage) / 100
       if (airtableVendorId) bidFields[B.vendor]    = [airtableVendorId]
       if (rfqId.startsWith('rec')) bidFields[B.rfq] = [rfqId]
       await base('Bids').create(bidFields)

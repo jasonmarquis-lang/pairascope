@@ -1,69 +1,60 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useParams, useRouter } from 'next/navigation'
+import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import Nav from '@/components/ui/Nav'
 
-interface RFQDetail {
-  id:             string
-  project_name:   string
-  project_id:     string
-  scope_document: string
-  status:         string
-  created_at:     string
-}
+export default function VendorRFQPage({ params }: { params: { id: string } }) {
+  const router   = useRouter()
+  const rfqId    = params.id
 
-interface Bid {
-  id:          string
-  price_low:   number
-  price_high:  number
-  timeline:    string
-  assumptions: string
-  notes:       string
-  created_at:  string
-}
+  const [rfq,        setRfq]        = useState<Record<string, unknown> | null>(null)
+  const [bid,        setBid]        = useState<Record<string, unknown> | null>(null)
+  const [isLoading,  setIsLoading]  = useState(true)
+  const [isSaving,   setIsSaving]   = useState(false)
+  const [saved,      setSaved]      = useState(false)
+  const [error,      setError]      = useState('')
 
-export default function VendorRFQPage() {
-  const params  = useParams()
-  const router  = useRouter()
-  const rfqId   = params.id as string
-
-  const [rfq,         setRfq]         = useState<RFQDetail | null>(null)
-  const [existingBid, setExistingBid] = useState<Bid | null>(null)
-  const [isLoading,   setIsLoading]   = useState(true)
-  const [submitting,  setSubmitting]  = useState(false)
-  const [submitted,   setSubmitted]   = useState(false)
-  const [error,       setError]       = useState('')
-
-  const [priceLow,    setPriceLow]    = useState('')
-  const [priceHigh,   setPriceHigh]   = useState('')
-  const [timeline,    setTimeline]    = useState('')
-  const [assumptions, setAssumptions] = useState('')
-  const [notes,       setNotes]       = useState('')
+  // Form fields
+  const [bidType,            setBidType]            = useState<'ROM' | 'Proposal'>('ROM')
+  const [priceLow,           setPriceLow]           = useState('')
+  const [priceHigh,          setPriceHigh]          = useState('')
+  const [firmPrice,          setFirmPrice]          = useState('')
+  const [depositAmount,      setDepositAmount]      = useState('')
+  const [depositPercentage,  setDepositPercentage]  = useState('')
+  const [timeline,           setTimeline]           = useState('')
+  const [assumptions,        setAssumptions]        = useState('')
+  const [notes,              setNotes]              = useState('')
 
   useEffect(() => {
     const load = async () => {
       const { data: sessionData } = await supabase.auth.getSession()
-      if (!sessionData.session) { router.push('/auth?redirect=/vendor'); return }
+      if (!sessionData.session) { router.push('/'); return }
+
+      const userId = sessionData.session.user.id
+      const token  = sessionData.session.access_token
 
       try {
-        const token = sessionData.session.access_token
-        const res   = await fetch('/api/bids?rfqId=' + rfqId, {
+        const res  = await fetch('/api/bids?rfqId=' + rfqId, {
           headers: { 'Authorization': 'Bearer ' + token },
         })
         const data = await res.json()
-        setRfq(data.rfq ?? null)
+        setRfq(data.rfq)
         if (data.bid) {
-          setExistingBid(data.bid)
-          setPriceLow(String(data.bid.price_low ?? ''))
-          setPriceHigh(String(data.bid.price_high ?? ''))
-          setTimeline(data.bid.timeline ?? '')
-          setAssumptions(data.bid.assumptions ?? '')
-          setNotes(data.bid.notes ?? '')
+          setBid(data.bid)
+          setBidType(data.bid.bid_type || 'ROM')
+          setPriceLow(data.bid.price_low?.toString() || '')
+          setPriceHigh(data.bid.price_high?.toString() || '')
+          setFirmPrice(data.bid.firm_price?.toString() || '')
+          setDepositAmount(data.bid.deposit_amount?.toString() || '')
+          setDepositPercentage(data.bid.deposit_percentage?.toString() || '')
+          setTimeline(data.bid.timeline || '')
+          setAssumptions(data.bid.assumptions || '')
+          setNotes(data.bid.notes || '')
         }
-      } catch {
-        setError('Could not load this RFQ.')
+      } catch (err) {
+        console.error('[VendorRFQ] Load error:', err)
       } finally {
         setIsLoading(false)
       }
@@ -72,35 +63,55 @@ export default function VendorRFQPage() {
   }, [rfqId, router])
 
   const handleSubmit = async () => {
-    if (!timeline.trim()) { setError('Please include an estimated timeline.'); return }
-    setSubmitting(true); setError('')
+    if (!timeline.trim()) { setError('Timeline is required.'); return }
+    if (bidType === 'ROM' && !priceLow && !priceHigh) { setError('Please enter a price range.'); return }
+    if (bidType === 'Proposal' && !firmPrice) { setError('Please enter a firm price.'); return }
+
+    setIsSaving(true); setError('')
     try {
       const { data: sessionData } = await supabase.auth.getSession()
+      const token = sessionData.session?.access_token
+
       const res = await fetch('/api/bids', {
         method:  'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + sessionData.session?.access_token },
-        body: JSON.stringify({ rfqId, priceLow: Number(priceLow) || null, priceHigh: Number(priceHigh) || null, timeline, assumptions, notes }),
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + (token ?? '') },
+        body: JSON.stringify({
+          rfqId,
+          bidType,
+          priceLow:          bidType === 'ROM' ? Number(priceLow) || null  : null,
+          priceHigh:         bidType === 'ROM' ? Number(priceHigh) || null : null,
+          firmPrice:         bidType === 'Proposal' ? Number(firmPrice) || null : null,
+          depositAmount:     bidType === 'Proposal' ? Number(depositAmount) || null : null,
+          depositPercentage: bidType === 'Proposal' ? Number(depositPercentage) || null : null,
+          timeline,
+          assumptions,
+          notes,
+        }),
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Failed to submit')
-      setSubmitted(true)
-      setExistingBid(data.bid)
+      setSaved(true)
+      setTimeout(() => router.push('/vendor'), 2000)
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Something went wrong.')
+      setError(err instanceof Error ? err.message : 'Failed to submit. Please try again.')
     } finally {
-      setSubmitting(false)
+      setIsSaving(false)
     }
   }
 
   const inputStyle: React.CSSProperties = {
-    width: '100%', backgroundColor: 'var(--ps-bg)', border: '0.5px solid var(--ps-border)',
-    borderRadius: 8, padding: '10px 12px', fontSize: 14, color: 'var(--ps-text)',
+    width: '100%', backgroundColor: 'var(--ps-bg)',
+    border: '0.5px solid var(--ps-border)', borderRadius: 8,
+    padding: '10px 12px', fontSize: 14, color: 'var(--ps-text)',
     fontFamily: 'inherit', outline: 'none',
   }
-
   const labelStyle: React.CSSProperties = {
-    fontSize: 11, color: 'var(--ps-muted)', textTransform: 'uppercase' as const,
+    fontSize: 11, color: 'var(--ps-muted)', textTransform: 'uppercase',
     letterSpacing: '0.07em', display: 'block', marginBottom: 6,
+  }
+  const sectionStyle: React.CSSProperties = {
+    backgroundColor: 'var(--ps-surface)', border: '0.5px solid var(--ps-border)',
+    borderRadius: 12, padding: 24, marginBottom: 20,
   }
 
   if (isLoading) return (
@@ -110,115 +121,131 @@ export default function VendorRFQPage() {
     </>
   )
 
+  if (!rfq) return (
+    <>
+      <Nav />
+      <div style={{ paddingTop: 56, display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh', color: 'var(--ps-muted)' }}>RFQ not found.</div>
+    </>
+  )
+
   return (
     <>
       <Nav />
       <main style={{ paddingTop: 56, minHeight: '100vh' }}>
-        <div style={{ maxWidth: 760, margin: '0 auto', padding: '48px 24px' }}>
+        <div style={{ maxWidth: 680, margin: '0 auto', padding: '48px 24px' }}>
 
-          <button onClick={() => router.push('/vendor')}
-            style={{ fontSize: 13, color: 'var(--ps-muted)', background: 'none', border: 'none', cursor: 'pointer', padding: 0, marginBottom: 24, fontFamily: 'inherit' }}>
-            Back to dashboard
+          <div style={{ marginBottom: 32 }}>
+            <button onClick={() => router.push('/vendor')} style={{ fontSize: 13, color: 'var(--ps-muted)', background: 'none', border: 'none', cursor: 'pointer', padding: 0, marginBottom: 16, fontFamily: 'inherit' }}>
+              ← Back to dashboard
+            </button>
+            <h1 style={{ fontSize: '1.5rem', fontWeight: 400, color: 'var(--ps-white)', margin: '0 0 8px' }}>
+              {rfq.project_name as string || 'Project Inquiry'}
+            </h1>
+            <p style={{ fontSize: 13, color: 'var(--ps-muted)', margin: 0 }}>
+              {rfq.project_id as string} · Received {new Date(rfq.created_at as string).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+            </p>
+          </div>
+
+          {/* Scope document */}
+          <div style={sectionStyle}>
+            <h2 style={{ fontSize: 14, fontWeight: 500, color: 'var(--ps-white)', margin: '0 0 16px' }}>Scope document</h2>
+            <pre style={{ fontSize: 12, color: 'var(--ps-text)', lineHeight: 1.7, whiteSpace: 'pre-wrap', fontFamily: 'inherit', margin: 0, maxHeight: 300, overflowY: 'auto' }}>
+              {rfq.scope_document as string || 'No scope document available.'}
+            </pre>
+          </div>
+
+          {/* Bid type toggle */}
+          <div style={sectionStyle}>
+            <h2 style={{ fontSize: 14, fontWeight: 500, color: 'var(--ps-white)', margin: '0 0 16px' }}>Response type</h2>
+            <div style={{ display: 'flex', gap: 8, marginBottom: 20 }}>
+              {(['ROM', 'Proposal'] as const).map((type) => (
+                <button
+                  key={type}
+                  onClick={() => setBidType(type)}
+                  style={{
+                    padding: '8px 20px',
+                    borderRadius: 8,
+                    border: '0.5px solid',
+                    borderColor: bidType === type ? 'var(--ps-teal)' : 'var(--ps-border)',
+                    backgroundColor: bidType === type ? 'rgba(29,158,117,0.1)' : 'transparent',
+                    color: bidType === type ? 'var(--ps-teal)' : 'var(--ps-muted)',
+                    fontSize: 13,
+                    fontWeight: 500,
+                    cursor: 'pointer',
+                    fontFamily: 'inherit',
+                  }}
+                >
+                  {type === 'ROM' ? 'ROM (Rough Order of Magnitude)' : 'Proposal (Firm Price)'}
+                </button>
+              ))}
+            </div>
+
+            {/* ROM fields */}
+            {bidType === 'ROM' && (
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                <div>
+                  <label style={labelStyle}>Price range low ($)</label>
+                  <input type="number" value={priceLow} onChange={(e) => setPriceLow(e.target.value)} placeholder="45000" style={inputStyle} />
+                </div>
+                <div>
+                  <label style={labelStyle}>Price range high ($)</label>
+                  <input type="number" value={priceHigh} onChange={(e) => setPriceHigh(e.target.value)} placeholder="65000" style={inputStyle} />
+                </div>
+              </div>
+            )}
+
+            {/* Proposal fields */}
+            {bidType === 'Proposal' && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                <div>
+                  <label style={labelStyle}>Firm price ($)</label>
+                  <input type="number" value={firmPrice} onChange={(e) => setFirmPrice(e.target.value)} placeholder="55000" style={inputStyle} />
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                  <div>
+                    <label style={labelStyle}>Deposit amount ($) <span style={{ color: 'rgba(136,135,128,0.5)' }}>optional</span></label>
+                    <input type="number" value={depositAmount} onChange={(e) => setDepositAmount(e.target.value)} placeholder="10000" style={inputStyle} />
+                  </div>
+                  <div>
+                    <label style={labelStyle}>Deposit % <span style={{ color: 'rgba(136,135,128,0.5)' }}>optional</span></label>
+                    <input type="number" value={depositPercentage} onChange={(e) => setDepositPercentage(e.target.value)} placeholder="20" style={inputStyle} />
+                  </div>
+                </div>
+                <p style={{ fontSize: 12, color: 'var(--ps-muted)', margin: 0 }}>Enter either a fixed deposit amount or a percentage — not both.</p>
+              </div>
+            )}
+          </div>
+
+          {/* Timeline + details */}
+          <div style={sectionStyle}>
+            <h2 style={{ fontSize: 14, fontWeight: 500, color: 'var(--ps-white)', margin: '0 0 16px' }}>Timeline & details</h2>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+              <div>
+                <label style={labelStyle}>Estimated timeline *</label>
+                <input type="text" value={timeline} onChange={(e) => setTimeline(e.target.value)} placeholder="12–16 weeks from approved design" style={inputStyle} />
+              </div>
+              <div>
+                <label style={labelStyle}>Assumptions & exclusions</label>
+                <textarea value={assumptions} onChange={(e) => setAssumptions(e.target.value)} placeholder="List your key assumptions and exclusions..." rows={4} style={{ ...inputStyle, resize: 'vertical' }} />
+              </div>
+              <div>
+                <label style={labelStyle}>Additional notes</label>
+                <textarea value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Any other notes for the artist..." rows={3} style={{ ...inputStyle, resize: 'vertical' }} />
+              </div>
+            </div>
+          </div>
+
+          {error && <p style={{ fontSize: 13, color: '#E24B4A', marginBottom: 12 }}>{error}</p>}
+          {saved && <p style={{ fontSize: 13, color: 'var(--ps-teal)', marginBottom: 12 }}>Response submitted successfully. Redirecting...</p>}
+
+          <button
+            onClick={handleSubmit}
+            disabled={isSaving || saved}
+            style={{ width: '100%', padding: '13px 0', backgroundColor: isSaving || saved ? 'rgba(29,158,117,0.5)' : 'var(--ps-teal)', color: 'white', border: 'none', borderRadius: 10, fontSize: 14, fontWeight: 500, cursor: isSaving || saved ? 'default' : 'pointer', fontFamily: 'inherit' }}
+          >
+            {saved ? 'Submitted' : isSaving ? 'Submitting...' : bid ? 'Update response' : 'Submit response'}
           </button>
 
-          {!rfq && !isLoading && <p style={{ color: 'var(--ps-muted)' }}>RFQ not found.</p>}
-
-          {rfq && (
-            <>
-              <div style={{ marginBottom: 32 }}>
-                <p style={{ fontSize: 11, color: 'var(--ps-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', margin: '0 0 6px' }}>
-                  Project inquiry · {rfq.project_id}
-                </p>
-                <h1 style={{ fontSize: '1.5rem', fontWeight: 400, color: 'var(--ps-white)', margin: '0 0 8px' }}>
-                  {rfq.project_name || 'Art Project'}
-                </h1>
-                <p style={{ fontSize: 13, color: 'var(--ps-muted)', margin: 0 }}>
-                  Received {new Date(rfq.created_at).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
-                </p>
-              </div>
-
-              <div style={{ marginBottom: 40 }}>
-                <p style={{ fontSize: 11, color: 'var(--ps-muted)', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 12 }}>Scope of work</p>
-                <pre style={{ fontSize: 13, color: 'var(--ps-text)', lineHeight: 1.8, whiteSpace: 'pre-wrap', fontFamily: 'inherit', margin: 0, backgroundColor: 'var(--ps-surface)', padding: '20px 24px', borderRadius: 10, border: '0.5px solid var(--ps-border)' }}>
-                  {rfq.scope_document}
-                </pre>
-              </div>
-
-              {submitted || existingBid ? (
-                <div style={{ backgroundColor: 'rgba(29,158,117,0.06)', border: '0.5px solid rgba(29,158,117,0.3)', borderRadius: 12, padding: '24px' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
-                    <span style={{ fontSize: 20, color: 'var(--ps-teal)' }}>✓</span>
-                    <h2 style={{ fontSize: 16, fontWeight: 500, color: 'var(--ps-white)', margin: 0 }}>Estimate submitted</h2>
-                  </div>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-                    {(priceLow || priceHigh) && (
-                      <div>
-                        <p style={labelStyle}>Price range</p>
-                        <p style={{ fontSize: 14, color: 'var(--ps-text)', margin: 0 }}>${Number(priceLow).toLocaleString()} - ${Number(priceHigh).toLocaleString()}</p>
-                      </div>
-                    )}
-                    {timeline && (
-                      <div>
-                        <p style={labelStyle}>Timeline</p>
-                        <p style={{ fontSize: 14, color: 'var(--ps-text)', margin: 0 }}>{timeline}</p>
-                      </div>
-                    )}
-                    {assumptions && (
-                      <div style={{ gridColumn: '1 / -1' }}>
-                        <p style={labelStyle}>Assumptions</p>
-                        <p style={{ fontSize: 14, color: 'var(--ps-text)', margin: 0, lineHeight: 1.6 }}>{assumptions}</p>
-                      </div>
-                    )}
-                    {notes && (
-                      <div style={{ gridColumn: '1 / -1' }}>
-                        <p style={labelStyle}>Notes</p>
-                        <p style={{ fontSize: 14, color: 'var(--ps-text)', margin: 0, lineHeight: 1.6 }}>{notes}</p>
-                      </div>
-                    )}
-                  </div>
-                  <p style={{ fontSize: 12, color: 'var(--ps-muted)', margin: '16px 0 0' }}>
-                    The artist has been notified and will reach out through Pairascope if they want to proceed.
-                  </p>
-                </div>
-              ) : (
-                <div>
-                  <h2 style={{ fontSize: 16, fontWeight: 500, color: 'var(--ps-white)', margin: '0 0 24px' }}>Submit your estimate</h2>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-                      <div>
-                        <label style={labelStyle}>Price low ($) <span style={{ color: 'rgba(136,135,128,0.5)' }}>optional</span></label>
-                        <input type="number" value={priceLow} onChange={(e) => setPriceLow(e.target.value)} placeholder="15000" style={inputStyle} />
-                      </div>
-                      <div>
-                        <label style={labelStyle}>Price high ($) <span style={{ color: 'rgba(136,135,128,0.5)' }}>optional</span></label>
-                        <input type="number" value={priceHigh} onChange={(e) => setPriceHigh(e.target.value)} placeholder="25000" style={inputStyle} />
-                      </div>
-                    </div>
-                    <div>
-                      <label style={labelStyle}>Timeline *</label>
-                      <input type="text" value={timeline} onChange={(e) => setTimeline(e.target.value)} placeholder="e.g. 10-12 weeks from deposit" style={inputStyle} />
-                    </div>
-                    <div>
-                      <label style={labelStyle}>Key assumptions <span style={{ color: 'rgba(136,135,128,0.5)' }}>optional</span></label>
-                      <textarea value={assumptions} onChange={(e) => setAssumptions(e.target.value)} placeholder="What is your estimate based on? What's included or excluded?" rows={4} style={{ ...inputStyle, resize: 'vertical' }} />
-                    </div>
-                    <div>
-                      <label style={labelStyle}>Additional notes <span style={{ color: 'rgba(136,135,128,0.5)' }}>optional</span></label>
-                      <textarea value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Questions, concerns, or additional context for the artist?" rows={3} style={{ ...inputStyle, resize: 'vertical' }} />
-                    </div>
-                    {error && <p style={{ fontSize: 13, color: '#E24B4A', margin: 0 }}>{error}</p>}
-                    <button
-                      onClick={handleSubmit}
-                      disabled={submitting}
-                      style={{ padding: '12px 24px', backgroundColor: submitting ? 'rgba(29,158,117,0.5)' : 'var(--ps-teal)', color: 'white', border: 'none', borderRadius: 10, fontSize: 14, fontWeight: 500, cursor: submitting ? 'default' : 'pointer', fontFamily: 'inherit', alignSelf: 'flex-start' }}
-                    >
-                      {submitting ? 'Submitting...' : 'Submit estimate ->'}
-                    </button>
-                  </div>
-                </div>
-              )}
-            </>
-          )}
         </div>
       </main>
     </>
