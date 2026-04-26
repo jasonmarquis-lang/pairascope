@@ -173,6 +173,8 @@ function RFQRow({ rfq, onContinue }: { rfq: RFQRecord; onContinue: () => void })
         const res = await fetch('/api/rfq-bids?rfqId=' + rfq.id)
         if (res.ok) {
           const data = await res.json()
+          console.log('[RFQHub] bids for', rfq.id, ':', JSON.stringify(data.bids?.map((b: {vendor_name: string; id: string}) => ({n: b.vendor_name, id: b.id}))))
+          console.log('[RFQHub] vendorList:', JSON.stringify(vendorList))
           setBids(data.bids ?? [])
         }
       } catch (e) {
