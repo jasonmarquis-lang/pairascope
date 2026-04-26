@@ -153,7 +153,7 @@ export async function POST(req: NextRequest) {
     // Save bid
     const { data: bid, error: bidError } = await supabaseAdmin
       .from('bids')
-      .upsert({ rfq_id: rfqId, vendor_id: userId, vendor_name: vendorName, price_low: priceLow ?? null, price_high: priceHigh ?? null, timeline, assumptions: assumptions || null, notes: notes || null, status: 'Submitted' })
+      .upsert({ rfq_id: rfqId, vendor_id: userId, vendor_name: vendorName, price_low: priceLow ?? null, price_high: priceHigh ?? null, timeline, assumptions: assumptions || null, notes: notes || null, status: 'Submitted' }, { onConflict: 'rfq_id,vendor_id' })
       .select()
       .single()
 
