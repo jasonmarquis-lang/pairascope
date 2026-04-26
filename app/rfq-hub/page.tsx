@@ -237,10 +237,11 @@ function RFQRow({ rfq, onContinue }: { rfq: RFQRecord; onContinue: () => void })
               <p style={{ fontSize: 11, color: 'var(--ps-muted)', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 10 }}>Vendors</p>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                 {vendorList.map((vendorName, i) => {
-                  const vendorStatus = rfq.vendor_statuses?.[vendorName] ?? 'Pending'
+                  const vendorStatusKey = Object.keys(rfq.vendor_statuses ?? {}).find(k => k.trim().toLowerCase() === vendorName.trim().toLowerCase())
+                  const vendorStatus = vendorStatusKey ? rfq.vendor_statuses![vendorStatusKey] : 'Pending'
                   const vsBg         = VENDOR_STATUS_STYLES[vendorStatus]?.bg ?? 'rgba(136,135,128,0.08)'
                   const vsColor      = VENDOR_STATUS_STYLES[vendorStatus]?.color ?? 'var(--ps-muted)'
-                  const vendorBid    = bids.find((b) => b.vendor_name === vendorName)
+                  const vendorBid    = bids.find((b) => b.vendor_name.trim().toLowerCase() === vendorName.trim().toLowerCase())
                   const bidId        = vendorBid?.id ?? ''
                   return (
                     <div key={i} style={{ backgroundColor: 'var(--ps-bg)', borderRadius: 8, border: '0.5px solid var(--ps-border)', overflow: 'hidden' }}>
