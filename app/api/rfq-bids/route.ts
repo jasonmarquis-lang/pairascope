@@ -14,10 +14,7 @@ export async function GET(req: NextRequest) {
       .eq('rfq_id', rfqId)
       .order('created_at', { ascending: true })
 
-    if (bids && bids.length > 0) {
-      console.log('[rfq-bids] Found', bids.length, 'bids for rfqId:', rfqId)
-      return NextResponse.json({ bids })
-    }
+    if (bids && bids.length > 0) return NextResponse.json({ bids })
 
     // Fallback: find the RFQ vendor_names and look up bids by vendor name + matching RFQ
     const { data: rfq } = await supabaseAdmin
@@ -35,7 +32,6 @@ export async function GET(req: NextRequest) {
         .order('created_at', { ascending: false })
         .limit(10)
 
-      console.log('[rfq-bids] Fallback found', fallbackBids?.length ?? 0, 'bids for vendors:', vendorNames)
       return NextResponse.json({ bids: fallbackBids ?? [] })
     }
 

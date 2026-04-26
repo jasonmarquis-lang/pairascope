@@ -20,10 +20,10 @@ export async function POST(req: NextRequest) {
 
     const fields: Airtable.FieldSet = {
       'fldFzGPSwvHWJ04uS': `${vendorName} \u2013 ${action} \u2013 ${new Date().toLocaleDateString()}`,
-      'fldFeJdKwuhNdvktQ': action       || '',
+      'fldFeJdKwuhNdvktQ': action === 'included' ? 'Included' : action === 'excluded' ? 'Excluded' : action || '',
       'fldzkYfTxHu0NrFC6': reason       || '',
       'fldCcdmCGA6h2rCJb': projectType  || '',
-      'fld0v8dzOa1yVpqzH': new Date().toISOString().split('T')[0],
+      'fld0v8dzOa1yVpqzH': new Date().toISOString(),
       'fldWlqWxyGHHmDj5e': vendorId     || '',
     }
 
