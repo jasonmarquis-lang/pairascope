@@ -137,8 +137,11 @@ export async function POST(req: NextRequest) {
           })
 
           const raw     = extractionResponse.content[0].type === 'text' ? extractionResponse.content[0].text : '{}'
-          const cleaned = raw.replace(/```json|```/g, '').trim()
-          const parsed  = JSON.parse(cleaned)
+          const cleaned = raw.replace(/```json\n?|```/g, '').trim()
+          // Find the JSON object in the response even if there's preamble
+          const jsonMatch = cleaned.match(/\{[\s\S]*\}/)
+          if (!jsonMatch) throw new Error('No JSON found in extraction response')
+          const parsed  = JSON.parse(jsonMatch[0])
 
           snapshot = {
             projectType:     parsed.projectType     || undefined,
