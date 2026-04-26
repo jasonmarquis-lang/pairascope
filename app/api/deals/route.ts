@@ -49,15 +49,13 @@ export async function POST(req: NextRequest) {
     if (airtableRfqId)     dealFields['fldY2VJ9R8q2WZrrT'] = [airtableRfqId]
     if (accountId)         dealFields['fldZNdJQQnj6OoiMT'] = [accountId]
     if (priceAccepted)     dealFields['fldD5PPED9xwdlaIJ'] = priceAccepted
-    // Look up Airtable bid record by vendor name + RFQ
+    // Look up Airtable bid record by vendor name
     try {
-      if (airtableVendorId) {
-        const airtableBids = await base('Bids')
-          .select({ filterByFormula: '{Vendor} = "' + (airtableVendorId ? airtableVendorId : '') + '"', maxRecords: 1 })
-          .all()
-        const airtableBidId = airtableBids[0]?.getId()
-        if (airtableBidId) dealFields['fldrQyq8LhR2pf51e'] = [airtableBidId]
-      }
+      const airtableBids = await base('Bids')
+        .select({ filterByFormula: 'SEARCH("' + vendorName + '", {Bid Name})', maxRecords: 1 })
+        .all()
+      const airtableBidId = airtableBids[0]?.getId()
+      if (airtableBidId) dealFields['fldrQyq8LhR2pf51e'] = [airtableBidId]
     } catch (bidLookupErr) {
       console.error('[deals] Bid lookup error:', bidLookupErr)
     }
