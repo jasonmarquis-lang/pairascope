@@ -7,16 +7,39 @@ export async function GET(req: NextRequest) {
     const rfqId = searchParams.get('rfqId')
     if (!rfqId) return NextResponse.json({ bids: [] })
 
-    const { data: bids, error } = await supabaseAdmin
+    // Try direct match first
+    const { data: bids } = await supabaseAdmin
       .from('bids')
       .select('*')
       .eq('rfq_id', rfqId)
       .order('created_at', { ascending: true })
 
-    if (error) console.error('[rfq-bids] Query error:', error)
-    console.log('[rfq-bids] rfqId:', rfqId, 'found:', bids?.length ?? 0, 'bids')
+    if (bids && bids.length > 0) {
+      console.log('[rfq-bids] Found', bids.length, 'bids for rfqId:', rfqId)
+      return NextResponse.json({ bids })
+    }
 
-    return NextResponse.json({ bids: bids ?? [] })
+    // Fallback: find the RFQ vendor_names and look up bids by vendor name + matching RFQ
+    const { data: rfq } = await supabaseAdmin
+      .from('rfqs')
+      .select('vendor_names, project_id')
+      .eq('id', rfqId)
+      .single()
+
+    if (rfq?.vendor_names) {
+      const vendorNames = rfq.vendor_names.split(',').map((v: string) => v.trim()).filter(Boolean)
+      const { data: fallbackBids } = await supabaseAdmin
+        .from('bids')
+        .select('*')
+        .in('vendor_name', vendorNames)
+        .order('created_at', { ascending: false })
+        .limit(10)
+
+      console.log('[rfq-bids] Fallback found', fallbackBids?.length ?? 0, 'bids for vendors:', vendorNames)
+      return NextResponse.json({ bids: fallbackBids ?? [] })
+    }
+
+    return NextResponse.json({ bids: [] })
   } catch (err) {
     console.error('[/api/rfq-bids] Error:', err)
     return NextResponse.json({ bids: [] }, { status: 500 })
