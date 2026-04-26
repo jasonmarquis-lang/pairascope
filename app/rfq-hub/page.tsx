@@ -251,7 +251,7 @@ function RFQRow({ rfq, onContinue }: { rfq: RFQRecord; onContinue: () => void })
                           <span style={{ fontSize: 11, color: vsColor, backgroundColor: vsBg, padding: '2px 8px', borderRadius: 20, fontWeight: 500 }}>
                             {vendorStatus}
                           </span>
-                          {vendorBid && vendorStatus !== 'Selected' && !dealDone && rfq.status !== 'Closed' && (
+                          {vendorBid && !dealDone && (
                             <button
                               onClick={(e) => { e.stopPropagation(); handleSelectVendor(vendorBid) }}
                               disabled={selecting === bidId}
