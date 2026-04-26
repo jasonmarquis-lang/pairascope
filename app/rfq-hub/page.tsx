@@ -154,7 +154,7 @@ export default function RFQHubPage() {
 
 function RFQRow({ rfq, onContinue }: { rfq: RFQRecord; onContinue: () => void }) {
   const [expanded,   setExpanded]   = useState(false)
-  const [bids,       setBids]       = useState<BidRecord[]>([])
+  const [bidMap,     setBidMap]     = useState<Record<string, BidRecord>>({})
   const [bidsLoaded, setBidsLoaded] = useState(false)
   const [selecting,  setSelecting]  = useState<string | null>(null)
   const [dealDone,   setDealDone]   = useState(false)
@@ -175,7 +175,11 @@ function RFQRow({ rfq, onContinue }: { rfq: RFQRecord; onContinue: () => void })
           const data = await res.json()
           console.log('[RFQHub] bids for', rfq.id, ':', JSON.stringify(data.bids?.map((b: {vendor_name: string; id: string}) => ({n: b.vendor_name, id: b.id}))))
           console.log('[RFQHub] vendorList:', JSON.stringify(vendorList))
-          setBids(data.bids ?? [])
+          const map: Record<string, BidRecord> = {}
+          for (const b of (data.bids ?? [])) {
+            map[b.vendor_name.trim().toLowerCase()] = b
+          }
+          setBidMap(map)
         }
       } catch (e) {
         console.error('[RFQ Hub] bid fetch error:', e)
@@ -241,7 +245,7 @@ function RFQRow({ rfq, onContinue }: { rfq: RFQRecord; onContinue: () => void })
                   const vendorStatus = vendorStatusKey ? rfq.vendor_statuses![vendorStatusKey] : 'Pending'
                   const vsBg         = VENDOR_STATUS_STYLES[vendorStatus]?.bg ?? 'rgba(136,135,128,0.08)'
                   const vsColor      = VENDOR_STATUS_STYLES[vendorStatus]?.color ?? 'var(--ps-muted)'
-                  const vendorBid    = bids.find((b) => b.vendor_name.trim().toLowerCase() === vendorName.trim().toLowerCase())
+                  const vendorBid    = bidMap[vendorName.trim().toLowerCase()]
                   const bidId        = vendorBid?.id ?? ''
                   return (
                     <div key={i} style={{ backgroundColor: 'var(--ps-bg)', borderRadius: 8, border: '0.5px solid var(--ps-border)', overflow: 'hidden' }}>
@@ -265,7 +269,7 @@ function RFQRow({ rfq, onContinue }: { rfq: RFQRecord; onContinue: () => void })
                           )}
                         </div>
                       </div>
-                      {vendorBid && (
+                      {vendorBid != null && (
                         <div style={{ padding: '10px 14px', borderTop: '0.5px solid var(--ps-border)', backgroundColor: 'rgba(29,158,117,0.03)', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 12 }}>
                           {(vendorBid.price_low || vendorBid.price_high) && (
                             <div>
