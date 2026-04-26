@@ -132,9 +132,9 @@ export default function RFQHubPage() {
           {!isLoading && !error && rfqs.length === 0 && (
             <div style={{ textAlign: 'center', padding: 60, backgroundColor: 'var(--ps-surface)', border: '0.5px solid var(--ps-border)', borderRadius: 12 }}>
               <p style={{ fontSize: 16, color: 'var(--ps-text)', marginBottom: 8 }}>No RFQs yet</p>
-              <p style={{ fontSize: 13, color: 'var(--ps-muted)', margin: '0 0 20px' }}>Complete a project conversation and click "Generate RFQ" to send your first one.</p>
+              <p style={{ fontSize: 13, color: 'var(--ps-muted)', margin: '0 0 20px' }}>Complete a project conversation and click Generate RFQ to send your first one.</p>
               <button onClick={() => router.push('/')} style={{ padding: '9px 20px', backgroundColor: 'var(--ps-teal)', color: 'white', border: 'none', borderRadius: 8, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}>
-                Start a project →
+                Start a project
               </button>
             </div>
           )}
@@ -153,12 +153,11 @@ export default function RFQHubPage() {
 }
 
 function RFQRow({ rfq, onContinue }: { rfq: RFQRecord; onContinue: () => void }) {
-  const router                    = useRouter()
-  const [expanded,   setExpanded]  = useState(false)
-  const [bids,       setBids]      = useState<BidRecord[]>([])
+  const [expanded,   setExpanded]   = useState(false)
+  const [bids,       setBids]       = useState<BidRecord[]>([])
   const [bidsLoaded, setBidsLoaded] = useState(false)
-  const [selecting,  setSelecting] = useState<string | null>(null)
-  const [dealDone,   setDealDone]  = useState(false)
+  const [selecting,  setSelecting]  = useState<string | null>(null)
+  const [dealDone,   setDealDone]   = useState(false)
 
   const style      = STATUS_STYLES[rfq.status] ?? STATUS_STYLES['Draft']
   const date       = new Date(rfq.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
@@ -171,15 +170,14 @@ function RFQRow({ rfq, onContinue }: { rfq: RFQRecord; onContinue: () => void })
     setExpanded(nowExpanded)
     if (nowExpanded && !bidsLoaded) {
       try {
-        const token = await getSessionToken()
-        const res   = await fetch('/api/rfq-bids?rfqId=' + rfq.id, {
-          headers: { 'Authorization': 'Bearer ' + token },
-        })
+        const res = await fetch('/api/rfq-bids?rfqId=' + rfq.id)
         if (res.ok) {
           const data = await res.json()
           setBids(data.bids ?? [])
         }
-      } catch { /* silently fail */ }
+      } catch (e) {
+        console.error('[RFQ Hub] bid fetch error:', e)
+      }
       setBidsLoaded(true)
     }
   }
@@ -203,7 +201,7 @@ function RFQRow({ rfq, onContinue }: { rfq: RFQRecord; onContinue: () => void })
       if (!res.ok) throw new Error(data.error || 'Failed')
       setDealDone(true)
     } catch (err) {
-      console.error('[RFQ Hub] Select vendor failed:', err)
+      console.error('[RFQ Hub] select vendor error:', err)
     } finally {
       setSelecting(null)
     }
@@ -212,7 +210,6 @@ function RFQRow({ rfq, onContinue }: { rfq: RFQRecord; onContinue: () => void })
   return (
     <div style={{ backgroundColor: 'var(--ps-surface)', border: '0.5px solid var(--ps-border)', borderRadius: 10, overflow: 'hidden' }}>
 
-      {/* Header row */}
       <div onClick={handleExpand} style={{ padding: '16px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0 }}>
           <span style={{ fontSize: 11, fontWeight: 500, color: style.color, backgroundColor: style.bg, padding: '3px 9px', borderRadius: 20, flexShrink: 0 }}>
@@ -233,34 +230,35 @@ function RFQRow({ rfq, onContinue }: { rfq: RFQRecord; onContinue: () => void })
       {expanded && (
         <div style={{ borderTop: '0.5px solid var(--ps-border)' }}>
 
-          {/* Vendor list + bids */}
           {vendorList.length > 0 && (
             <div style={{ padding: '16px 20px', borderBottom: '0.5px solid var(--ps-border)' }}>
               <p style={{ fontSize: 11, color: 'var(--ps-muted)', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 10 }}>Vendors</p>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                 {vendorList.map((vendorName, i) => {
                   const vendorStatus = rfq.vendor_statuses?.[vendorName] ?? 'Pending'
-                  const vs           = VENDOR_STATUS_STYLES[vendorStatus] ?? VENDOR_STATUS_STYLES['Pending']
+                  const vsBg         = VENDOR_STATUS_STYLES[vendorStatus]?.bg ?? 'rgba(136,135,128,0.08)'
+                  const vsColor      = VENDOR_STATUS_STYLES[vendorStatus]?.color ?? 'var(--ps-muted)'
                   const vendorBid    = bids.find((b) => b.vendor_name === vendorName)
+                  const bidId        = vendorBid?.id ?? ''
                   return (
                     <div key={i} style={{ backgroundColor: 'var(--ps-bg)', borderRadius: 8, border: '0.5px solid var(--ps-border)', overflow: 'hidden' }}>
                       <div style={{ padding: '10px 14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                         <span style={{ fontSize: 13, color: 'var(--ps-text)' }}>{vendorName}</span>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                          <span style={{ fontSize: 11, color: vs.color, backgroundColor: vs.bg, padding: '2px 8px', borderRadius: 20, fontWeight: 500 }}>
+                          <span style={{ fontSize: 11, color: vsColor, backgroundColor: vsBg, padding: '2px 8px', borderRadius: 20, fontWeight: 500 }}>
                             {vendorStatus}
                           </span>
                           {vendorBid && vendorStatus !== 'Selected' && !dealDone && rfq.status !== 'Closed' && (
                             <button
                               onClick={(e) => { e.stopPropagation(); handleSelectVendor(vendorBid) }}
-                              disabled={selecting === vendorBid.id}
-                              style={{ padding: '4px 12px', backgroundColor: selecting === vendorBid.id ? 'rgba(29,158,117,0.4)' : 'var(--ps-teal)', color: 'white', border: 'none', borderRadius: 6, fontSize: 11, cursor: selecting === vendorBid.id ? 'default' : 'pointer', fontFamily: 'inherit', fontWeight: 500 }}
+                              disabled={selecting === bidId}
+                              style={{ padding: '4px 12px', backgroundColor: selecting === bidId ? 'rgba(29,158,117,0.4)' : 'var(--ps-teal)', color: 'white', border: 'none', borderRadius: 6, fontSize: 11, cursor: selecting === bidId ? 'default' : 'pointer', fontFamily: 'inherit', fontWeight: 500 }}
                             >
-                              {selecting === vendorBid.id ? 'Selecting...' : 'Select this vendor'}
+                              {selecting === bidId ? 'Selecting...' : 'Select this vendor'}
                             </button>
                           )}
                           {(vendorStatus === 'Selected' || dealDone) && (
-                            <span style={{ fontSize: 11, color: 'var(--ps-teal)' }}>✓ Deal created</span>
+                            <span style={{ fontSize: 11, color: 'var(--ps-teal)' }}>Deal created</span>
                           )}
                         </div>
                       </div>
@@ -270,7 +268,7 @@ function RFQRow({ rfq, onContinue }: { rfq: RFQRecord; onContinue: () => void })
                             <div>
                               <p style={{ fontSize: 10, color: 'var(--ps-muted)', textTransform: 'uppercase', letterSpacing: '0.07em', margin: '0 0 3px' }}>Price range</p>
                               <p style={{ fontSize: 13, color: 'var(--ps-white)', margin: 0 }}>
-                                {vendorBid.price_low ? `$${Number(vendorBid.price_low).toLocaleString()}` : ''}{vendorBid.price_low && vendorBid.price_high ? ' – ' : ''}{vendorBid.price_high ? `$${Number(vendorBid.price_high).toLocaleString()}` : ''}
+                                {vendorBid.price_low ? '$' + Number(vendorBid.price_low).toLocaleString() : ''}{vendorBid.price_low && vendorBid.price_high ? ' - ' : ''}{vendorBid.price_high ? '$' + Number(vendorBid.price_high).toLocaleString() : ''}
                               </p>
                             </div>
                           )}
@@ -295,7 +293,6 @@ function RFQRow({ rfq, onContinue }: { rfq: RFQRecord; onContinue: () => void })
             </div>
           )}
 
-          {/* Scope document */}
           <div style={{ padding: '16px 20px', borderBottom: '0.5px solid var(--ps-border)' }}>
             <p style={{ fontSize: 11, color: 'var(--ps-muted)', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 10 }}>Scope document</p>
             <pre style={{ fontSize: 12, color: 'var(--ps-text)', lineHeight: 1.7, whiteSpace: 'pre-wrap', fontFamily: 'inherit', margin: 0, backgroundColor: 'var(--ps-bg)', padding: '12px 14px', borderRadius: 8, border: '0.5px solid var(--ps-border)', maxHeight: 300, overflowY: 'auto' }}>
@@ -303,7 +300,6 @@ function RFQRow({ rfq, onContinue }: { rfq: RFQRecord; onContinue: () => void })
             </pre>
           </div>
 
-          {/* Footer */}
           <div style={{ padding: '12px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
             <div style={{ display: 'flex', gap: 24, flexWrap: 'wrap' }}>
               <MetaItem label="Reference" value={rfq.project_id} />
@@ -316,7 +312,7 @@ function RFQRow({ rfq, onContinue }: { rfq: RFQRecord; onContinue: () => void })
               onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = 'rgba(29,158,117,0.08)' }}
               onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'transparent' }}
             >
-              Continue conversation →
+              Continue conversation
             </button>
           </div>
         </div>
