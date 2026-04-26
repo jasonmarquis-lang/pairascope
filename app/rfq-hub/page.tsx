@@ -158,6 +158,8 @@ function RFQRow({ rfq, onContinue }: { rfq: RFQRecord; onContinue: () => void })
   const [bidsLoaded, setBidsLoaded] = useState(false)
   const [selecting,  setSelecting]  = useState<string | null>(null)
   const [dealDone,   setDealDone]   = useState(false)
+  const [depositUrl,  setDepositUrl]  = useState<string | null>(null)
+  const [payingDeposit, setPayingDeposit] = useState(false)
 
   const style      = STATUS_STYLES[rfq.status] ?? STATUS_STYLES['Draft']
   const date       = new Date(rfq.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
@@ -212,6 +214,33 @@ function RFQRow({ rfq, onContinue }: { rfq: RFQRecord; onContinue: () => void })
     }
   }
 
+  const handlePayDeposit = async (bid: BidRecord) => {
+    setPayingDeposit(true)
+    try {
+      const token = await getSessionToken()
+      const depositAmount = bid.price_high || bid.price_low || 0
+      const res = await fetch('/api/stripe', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+        body: JSON.stringify({
+          dealId:        rfq.id,
+          dealName:      rfq.project_name,
+          depositAmount: depositAmount,
+          projectName:   rfq.project_name,
+          vendorName:    bid.vendor_name,
+        }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Failed')
+      setDepositUrl(data.url)
+      window.open(data.url, '_blank')
+    } catch (err) {
+      console.error('[RFQ Hub] pay deposit error:', err)
+    } finally {
+      setPayingDeposit(false)
+    }
+  }
+
   return (
     <div style={{ backgroundColor: 'var(--ps-surface)', border: '0.5px solid var(--ps-border)', borderRadius: 10, overflow: 'hidden' }}>
 
@@ -263,8 +292,19 @@ function RFQRow({ rfq, onContinue }: { rfq: RFQRecord; onContinue: () => void })
                               {selecting === bidId ? 'Selecting...' : 'Select this vendor'}
                             </button>
                           )}
-                          {(vendorStatus === 'Selected' || dealDone) && (
-                            <span style={{ fontSize: 11, color: 'var(--ps-teal)' }}>Deal created</span>
+                          {(vendorStatus === 'Selected' || dealDone) && !depositUrl && (
+                            <button
+                              onClick={(e) => { e.stopPropagation(); if (vendorBid) handlePayDeposit(vendorBid) }}
+                              disabled={payingDeposit}
+                              style={{ padding: '4px 12px', backgroundColor: 'transparent', color: 'var(--ps-teal)', border: '0.5px solid rgba(29,158,117,0.4)', borderRadius: 6, fontSize: 11, cursor: payingDeposit ? 'default' : 'pointer', fontFamily: 'inherit', fontWeight: 500 }}
+                            >
+                              {payingDeposit ? 'Generating...' : 'Pay deposit'}
+                            </button>
+                          )}
+                          {depositUrl && (
+                            <a href={depositUrl} target="_blank" rel="noopener noreferrer" style={{ fontSize: 11, color: 'var(--ps-teal)', textDecoration: 'none' }}>
+                              Open payment link →
+                            </a>
                           )}
                         </div>
                       </div>
