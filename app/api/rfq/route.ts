@@ -106,6 +106,23 @@ export async function POST(req: NextRequest) {
       console.error('[RFQ] Supabase error:', JSON.stringify(sbErr))
     }
 
+    // Fix: update conversation user_id if not already set
+    try {
+      const rfqAuth = req.headers.get('authorization')
+      if (rfqAuth?.startsWith('Bearer ')) {
+        const { data: rfqUser } = await supabaseAdmin.auth.getUser(rfqAuth.slice(7))
+        const rfqUserId = rfqUser.user?.id
+        if (rfqUserId && conversationId) {
+          await supabaseAdmin.from('conversations')
+            .update({ user_id: rfqUserId })
+            .eq('id', conversationId)
+            .is('user_id', null)
+        }
+      }
+    } catch (convErr) {
+      console.error('[RFQ] Conversation user_id update failed:', convErr)
+    }
+
     // Link Account record and Vendors Contacted to Project
     try {
       // Get artist email from auth header first, fall back to conversation user_id
