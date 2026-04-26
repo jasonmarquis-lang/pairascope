@@ -49,12 +49,21 @@ export async function POST(req: NextRequest) {
     if (airtableRfqId)     dealFields['fldY2VJ9R8q2WZrrT'] = [airtableRfqId]
     if (accountId)         dealFields['fldZNdJQQnj6OoiMT'] = [accountId]
     if (priceAccepted)     dealFields['fldD5PPED9xwdlaIJ'] = priceAccepted
-    // Look up Airtable bid record by vendor name
+    // Look up Airtable bid record by RFQ and vendor
+    let airtableBidId: string | null = null
     try {
-      const airtableBids = await base('Bids')
-        .select({ filterByFormula: 'SEARCH("' + vendorName + '", {Bid Name})', maxRecords: 1 })
-        .all()
-      const airtableBidId = airtableBids[0]?.getId()
+      if (airtableRfqId && airtableVendorId) {
+        const airtableBids = await base('Bids')
+          .select({ filterByFormula: 'AND({RFQ} = "' + airtableRfqId + '", {Vendor} = "' + airtableVendorId + '")', maxRecords: 1 })
+          .all()
+        airtableBidId = airtableBids[0]?.getId() ?? null
+      }
+      if (!airtableBidId && airtableVendorId) {
+        const airtableBids = await base('Bids')
+          .select({ filterByFormula: 'SEARCH("' + vendorName + '", {Bid Name})', maxRecords: 1 })
+          .all()
+        airtableBidId = airtableBids[0]?.getId() ?? null
+      }
       if (airtableBidId) dealFields['fldrQyq8LhR2pf51e'] = [airtableBidId]
     } catch (bidLookupErr) {
       console.error('[deals] Bid lookup error:', bidLookupErr)
