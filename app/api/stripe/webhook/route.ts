@@ -3,8 +3,7 @@ import Stripe from 'stripe'
 import Airtable from 'airtable'
 import * as postmark from 'postmark'
 
-const stripe    = new Stripe(process.env.STRIPE_SECRET_KEY ?? '', { apiVersion: '2026-04-22.dahlia' })
-const base      = new Airtable({ apiKey: process.env.AIRTABLE_API_KEY! }).base(process.env.AIRTABLE_BASE_ID!)
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY ?? '', { apiVersion: '2026-04-22.dahlia' })
 const pmClient  = new postmark.ServerClient(process.env.POSTMARK_API_KEY ?? '')
 const FROM      = process.env.POSTMARK_FROM_EMAIL ?? 'create@pairascope.com'
 const ADMIN     = process.env.ADMIN_EMAIL ?? 'admin@pairascope.com'
@@ -21,6 +20,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Invalid signature' }, { status: 400 })
   }
 
+  const base = new Airtable({ apiKey: process.env.AIRTABLE_API_KEY! }).base(process.env.AIRTABLE_BASE_ID!)
   if (event.type === 'checkout.session.completed' || event.type === 'payment_intent.succeeded') {
     const session  = event.data.object as Stripe.Checkout.Session | Stripe.PaymentIntent
     const metadata = session.metadata ?? {}

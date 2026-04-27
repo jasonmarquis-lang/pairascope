@@ -4,10 +4,10 @@ import { supabaseAdmin } from '@/lib/supabase'
 import Airtable from 'airtable'
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY ?? '', { apiVersion: '2026-04-22.dahlia' })
-const base   = new Airtable({ apiKey: process.env.AIRTABLE_API_KEY! }).base(process.env.AIRTABLE_BASE_ID!)
 
 export async function POST(req: NextRequest) {
   try {
+    const base = new Airtable({ apiKey: process.env.AIRTABLE_API_KEY! }).base(process.env.AIRTABLE_BASE_ID!)
     const authHeader = req.headers.get('authorization')
     if (!authHeader?.startsWith('Bearer ')) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
