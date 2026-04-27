@@ -15,17 +15,17 @@ export async function POST(req: NextRequest) {
     const { dealId, dealName, depositAmount, projectName, vendorName } = await req.json()
     if (!dealId || !depositAmount) return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
 
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.pairascope.com'
+    const appUrl      = process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.pairascope.com'
+    const userId      = userData.user.id
+    const userEmail   = userData.user.email ?? ''
+    const description = dealName || (projectName + ' - ' + vendorName)
 
     const paymentLink = await stripe.paymentLinks.create({
       line_items: [{
         price_data: {
           currency:     'usd',
           unit_amount:  Math.round(Number(depositAmount) * 100),
-          product_data: {
-            name:        'Project Deposit',
-            description: dealName || (projectName + ' - ' + vendorName),
-          },
+          product_data: { name: 'Project Deposit', description },
         },
         quantity: 1,
       }],
@@ -33,14 +33,12 @@ export async function POST(req: NextRequest) {
         type:     'redirect',
         redirect: { url: appUrl + '/rfq-hub?deposit=success' },
       },
-      metadata: {
-        deal_id:      dealId,
-        artist_id:    userData.user.id,
-        artist_email: userData.user.email ?? '',
-      },
+      metadata: { deal_id: dealId, artist_id: userId, artist_email: userEmail },
     })
 
-    return NextResponse.json({ url: paymentLink.url, paymentLinkId: paymentLink.id })
+    const linkId  = paymentLink.id
+    const linkUrl = paymentLink.url
+    return NextResponse.json({ url: linkUrl, paymentLinkId: linkId })
   } catch (err) {
     console.error('[/api/stripe] Error:', err)
     return NextResponse.json({ error: 'Failed to create payment link' }, { status: 500 })
