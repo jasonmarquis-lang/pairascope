@@ -57,7 +57,7 @@ export async function POST(req: NextRequest) {
   const eventType = event["type"];
   if (eventType === "checkout.session.completed") {
     const eventData = event["data"];
-    const session = eventData["object"] as Record<string, unknown>;
+    const session = eventData["object"] as unknown as Record<string, unknown>;
     const metadata = (session["metadata"] || {}) as Record<string, string>;
     const dealId = metadata["dealId"];
 
