@@ -43,7 +43,7 @@ export default function VendorRFQPage({ params }: { params: { id: string } }) {
         setRfq(data.rfq)
         if (data.bid) {
           setBid(data.bid)
-          setBidType(data.bid.bid_type || 'ROM')
+          setBidType(data.bid.quote_type || 'ROM')
           setPriceLow(data.bid.price_low?.toString() || '')
           setPriceHigh(data.bid.price_high?.toString() || '')
           setFirmPrice(data.bid.firm_price?.toString() || '')

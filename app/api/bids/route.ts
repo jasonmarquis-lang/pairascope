@@ -117,7 +117,7 @@ export async function POST(req: NextRequest) {
         rfq_id:             rfqId,
         vendor_id:          userId,
         vendor_name:        vendorName,
-        bid_type:           bidType || 'ROM',
+        quote_type:           bidType || 'ROM',
         price_low:          priceLow ?? null,
         price_high:         priceHigh ?? null,
         firm_price:         firmPrice ?? null,
