@@ -174,7 +174,7 @@ export async function POST(req: NextRequest) {
           const arrayBuf = await proposalFile.arrayBuffer()
           const base64   = Buffer.from(arrayBuf).toString('base64')
           const dataUrl  = 'data:' + proposalFile.type + ';base64,' + base64
-          bidFields[B.proposalFile] = [{ url: dataUrl, filename: proposalFile.name }]
+          bidFields[B.proposalFile] = [{ url: dataUrl, filename: proposalFile.name }] as unknown as Airtable.FieldSet
         } catch (fileErr) {
           console.error('[/api/bids] File attach error:', fileErr)
         }
