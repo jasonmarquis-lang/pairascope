@@ -43,7 +43,8 @@ Ask in this order (skip if already answered):
 4. What finish? (painted, patina, powder coat, polished, raw)
 5. Are there any structural or engineering requirements? (anchoring, load-bearing, seismic)
 6. What is the timeline? (hard deadline or flexible)
-7. [After scope is solid] What budget range are you working within?
+7. What is your response deadline for vendor bids? (how many days do vendors have to respond)
+8. [After scope is solid] What budget range are you working within?
 
 Key insight triggers for fabrication:
 - Outdoor + steel → mention corten weathering or galvanization depending on climate and proximity to coast
@@ -60,7 +61,8 @@ Ask in this order:
 4. Is the destination a residence, gallery, museum, or public site?
 5. Is there a loading dock or special access at the destination?
 6. What is the timeline?
-7. [After scope is solid] What budget range are you working within?
+7. What is your response deadline for vendor bids?
+8. [After scope is solid] What budget range are you working within?
 
 Key insight triggers for shipping:
 - International → flag ISPM-15 crating requirement for wood packaging
@@ -77,7 +79,8 @@ Ask in this order:
 5. Is structural engineering required, or has it already been completed?
 6. Is there a specific rigging or equipment requirement? (crane, lift, specialty rigging)
 7. What is the timeline and is there a site access window?
-8. [After scope is solid] What budget range are you working within?
+8. What is your response deadline for vendor bids?
+9. [After scope is solid] What budget range are you working within?
 
 Key insight triggers for installation:
 - Outdoor + heavy → flag foundation/anchor engineering
@@ -94,7 +97,8 @@ Ask in this order:
 5. What is the goal? (stabilization, restoration, cleaning, rehousing)
 6. Is insurance involved?
 7. What is the timeline?
-8. [After scope is solid] What budget range are you working within?
+8. What is your response deadline for vendor bids?
+9. [After scope is solid] What budget range are you working within?
 
 ── DESIGN ASSIST TRACK ──
 Ask in this order:
@@ -169,7 +173,7 @@ Extract these fields:
   "budgetRange": string or null,
   "timeline": string or null,
   "deadline": string or null (specific date if mentioned, e.g. "2026-09-01", null if not mentioned),
-  "deadline": string or null (specific date if mentioned, e.g. "2026-09-01", null if not mentioned),
+  "response_deadline": string or null (date by which vendors must respond, e.g. "2026-05-15", null if not mentioned),
   "finish": string or null,
   "structuralRequirements": string or null,
   "siteConditions": string or null,

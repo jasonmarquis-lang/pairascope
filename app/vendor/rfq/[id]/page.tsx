@@ -142,7 +142,7 @@ export default function VendorRFQPage({ params }: { params: { id: string } }) {
               {rfq.project_name as string || 'Project Inquiry'}
             </h1>
             <p style={{ fontSize: 13, color: 'var(--ps-muted)', margin: 0 }}>
-              {rfq.project_id as string} · Received {new Date(rfq.created_at as string).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+              {rfq.project_id as string} · Received {new Date(rfq.created_at as string).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}{rfq.response_deadline ? ' · Respond by ' + new Date(rfq.response_deadline as string).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : ''}
             </p>
           </div>
 

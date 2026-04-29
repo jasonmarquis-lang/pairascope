@@ -12,7 +12,7 @@ const ADMIN    = process.env.ADMIN_EMAIL ?? 'admin@pairascope.com'
 
 export async function POST(req: NextRequest) {
   try {
-    const { conversationId, projectName, scopeDocument, vendorIds, vendorNames } = await req.json()
+    const { conversationId, projectName, scopeDocument, vendorIds, vendorNames, responseDeadline } = await req.json()
     if (!conversationId || !scopeDocument) return NextResponse.json({ error: 'Missing fields' }, { status: 400 })
 
     const projectId = `PS-${Date.now().toString(36).toUpperCase()}`
@@ -100,6 +100,7 @@ export async function POST(req: NextRequest) {
         vendors_contacted: vendorIds?.length ?? sent,
         vendor_names:      (vendorNames || vendors.map((v) => v.name)).join(', '),
         vendor_ids:        vendorIds ?? [],
+        response_deadline: responseDeadline || null,
         created_at:        new Date().toISOString(),
       })
     } catch (sbErr) {
