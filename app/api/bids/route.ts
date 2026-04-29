@@ -168,18 +168,20 @@ export async function POST(req: NextRequest) {
       if (depositPercentage) bidFields[B.depositPct]  = Number(depositPercentage) / 100
       if (airtableVendorId) bidFields[B.vendor]    = [airtableVendorId]
       if (rfqId.startsWith('rec')) bidFields[B.rfq] = [rfqId]
-      // If a proposal file was uploaded, attach it via URL fetch
+      const createdBid = await base('Bids').create(bidFields)
+
+      // If a proposal file was uploaded, update the record with attachment
       if (proposalFile) {
         try {
           const arrayBuf = await proposalFile.arrayBuffer()
           const base64   = Buffer.from(arrayBuf).toString('base64')
           const dataUrl  = 'data:' + proposalFile.type + ';base64,' + base64
-          ;(bidFields as Record<string, unknown>)[B.proposalFile] = [{ url: dataUrl, filename: proposalFile.name }]
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          await base('Bids').update(createdBid.getId(), { [B.proposalFile]: [{ url: dataUrl, filename: proposalFile.name }] } as any)
         } catch (fileErr) {
           console.error('[/api/bids] File attach error:', fileErr)
         }
       }
-      await base('Bids').create(bidFields)
     } catch (airtableErr) {
       console.error('[/api/bids] Airtable error:', JSON.stringify(airtableErr))
     }
