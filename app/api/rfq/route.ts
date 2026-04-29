@@ -97,7 +97,7 @@ export async function POST(req: NextRequest) {
         project_id:        projectId,
         scope_document:    scopeDocument,
         status:            'Sent',
-        vendors_contacted: sent,
+        vendors_contacted: vendorIds?.length ?? sent,
         vendor_names:      (vendorNames || vendors.map((v) => v.name)).join(', '),
         vendor_ids:        vendorIds ?? [],
         created_at:        new Date().toISOString(),

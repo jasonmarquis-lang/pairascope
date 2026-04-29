@@ -101,7 +101,7 @@ export default function RFQHubPage() {
 
   const total    = rfqs.length
   const sent     = rfqs.filter((r) => r.status === 'Sent').length
-  const received = rfqs.filter((r) => r.status === 'Estimates Received').length
+  const received = rfqs.reduce((acc, r) => acc + Object.values(r.vendor_statuses ?? {}).filter((s) => s === 'Responded' || s === 'Selected').length, 0)
 
   return (
     <>
