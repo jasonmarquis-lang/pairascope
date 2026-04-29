@@ -128,14 +128,7 @@ export default function ScopePanel({ snapshot, conversationId }: ScopePanelProps
             >
               Generate RFQ →
             </button>
-            <button
-              onClick={handleSeeVendors}
-              style={{ width: '100%', padding: '10px 20px', backgroundColor: 'transparent', color: 'var(--ps-muted)', border: '0.5px solid var(--ps-border)', borderRadius: 10, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit', transition: 'all 0.15s ease' }}
-              onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--ps-text)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.2)' }}
-              onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--ps-muted)'; e.currentTarget.style.borderColor = 'var(--ps-border)' }}
-            >
-              Browse vendors
-            </button>
+
             {!user && (
               <p style={{ fontSize: 11, color: 'var(--ps-muted)', textAlign: 'center', margin: 0 }}>
                 Sign in to generate an RFQ and save your project.
