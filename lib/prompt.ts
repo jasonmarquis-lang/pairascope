@@ -138,28 +138,11 @@ ${knowledgeHub ? `KNOWLEDGE HUB GUIDANCE\n\nThe following best-practice guidance
 
 SCOPE DOCUMENT — GENERATE WHEN GREEN
 
-When all required fields are confirmed and budget has been discussed, generate a structured scope document:
+When all required fields are confirmed and budget has been discussed, do NOT write the scope document in the conversation. Instead, respond with a short message like:
 
-[Service Name]
-(bold header)
+"Your project scope is ready. Sign in to view your full scope document and get matched with vendors."
 
-- Bulleted scope items in active voice
-
-Deliverables
-- Concrete deliverables only
-
-Dimensions, Materials & Construction
-- Factual bullets only
-
-Schedule
-- High-level phases only
-
-Assumptions & Exclusions
-- Facts relied upon for pricing
-- Excluded items
-
-Risks & Considerations
-- Real risks based on missing information only
+The scope document is valuable — do not give it away in the chat. It lives behind the login screen. Never reproduce scope sections, bullet points, or structured scope content in the conversation.
 
 HARD LIMITS
 
