@@ -27,6 +27,7 @@ export default function ChatInput({ onSend, onNewProject, isLoading, started, pl
     setFileError('')
     if (textareaRef.current) {
       textareaRef.current.style.height = 'auto'
+      textareaRef.current.focus()
     }
   }
 
@@ -96,7 +97,7 @@ export default function ChatInput({ onSend, onNewProject, isLoading, started, pl
           onMouseEnter={(e) => e.currentTarget.style.color = 'var(--ps-text)'}
           onMouseLeave={(e) => e.currentTarget.style.color = 'var(--ps-muted)'}
         >
-          ⊕
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48"/></svg>
         </button>
         <input
           ref={fileInputRef}
@@ -112,6 +113,7 @@ export default function ChatInput({ onSend, onNewProject, isLoading, started, pl
           onChange={(e) => { setValue(e.target.value); handleInput() }}
           onKeyDown={handleKeyDown}
           placeholder={placeholder || 'Tell me about your project…'}
+          autoFocus
           rows={1}
           style={{
             flex:            1,
@@ -127,19 +129,6 @@ export default function ChatInput({ onSend, onNewProject, isLoading, started, pl
             padding:         '2px 0',
           }}
         />
-
-        {/* New project button — only shown when started */}
-        {started && (
-          <button
-            onClick={onNewProject}
-            title="Start a new project"
-            style={{ background: 'none', border: '0.5px solid var(--ps-border)', color: 'var(--ps-muted)', cursor: 'pointer', padding: '5px 10px', borderRadius: 8, flexShrink: 0, fontSize: 12, fontFamily: 'inherit', transition: 'all 0.15s ease', whiteSpace: 'nowrap' }}
-            onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--ps-text)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.2)' }}
-            onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--ps-muted)'; e.currentTarget.style.borderColor = 'var(--ps-border)' }}
-          >
-            New project
-          </button>
-        )}
 
         {/* Send button */}
         <button
@@ -169,6 +158,21 @@ export default function ChatInput({ onSend, onNewProject, isLoading, started, pl
           )}
         </button>
       </div>
+
+      {/* New project button — centered below input */}
+      {started && (
+        <div style={{ display: 'flex', justifyContent: 'center', marginTop: 14 }}>
+          <button
+            onClick={onNewProject}
+            title="Start a new project"
+            style={{ background: 'none', border: '0.5px solid var(--ps-border)', color: 'var(--ps-muted)', cursor: 'pointer', padding: '6px 16px', borderRadius: 8, fontSize: 12, fontFamily: 'inherit', transition: 'all 0.15s ease', whiteSpace: 'nowrap' }}
+            onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--ps-text)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.2)' }}
+            onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--ps-muted)'; e.currentTarget.style.borderColor = 'var(--ps-border)' }}
+          >
+            New project
+          </button>
+        </div>
+      )}
     </div>
   )
 }

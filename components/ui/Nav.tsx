@@ -68,7 +68,7 @@ export default function Nav() {
         backdropFilter:  'blur(12px)',
         borderBottom:    '0.5px solid var(--ps-border)',
       }}>
-        <Logo size="sm" />
+        <Link href="/" style={{ textDecoration: "none", display: "flex", alignItems: "center" }}><Logo size="sm" /></Link>
 
         <div style={{ display: 'flex', gap: 4 }}>
           {navLinks.map(({ href, label }) => {
