@@ -8,7 +8,7 @@ import Nav from '@/components/ui/Nav'
 interface BidRecord {
   id:                 string
   vendor_name:        string
-  quote_type:           string | null
+  quote_type:         string | null
   price_low:          number | null
   price_high:         number | null
   firm_price:         number | null
@@ -312,67 +312,16 @@ function RFQRow({ rfq, onContinue }: { rfq: RFQRecord; onContinue: () => void })
                           )}
                         </div>
                       </div>
-                      {vendorBid != null && (() => {
-                        const bt = vendorBid.quote_type
-                        const fp = vendorBid.firm_price
-                        const da = vendorBid.deposit_amount
-                        const dp = vendorBid.deposit_percentage
-                        return (
+                      {vendorBid != null && (
                         <div style={{ padding: '10px 14px', borderTop: '0.5px solid var(--ps-border)', backgroundColor: 'rgba(29,158,117,0.03)', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 12 }}>
-                          {bt && (<div><p style={{ fontSize: 10, color: 'var(--ps-muted)', textTransform: 'uppercase', letterSpacing: '0.07em', margin: '0 0 3px' }}>Bid type</p><p style={{ fontSize: 13, color: 'var(--ps-white)', margin: 0 }}>{bt}</p></div>)}
-                          {bt === 'ROM' && (vendorBid.price_low || vendorBid.price_high) && (<div><p style={{ fontSize: 10, color: 'var(--ps-muted)', textTransform: 'uppercase', letterSpacing: '0.07em', margin: '0 0 3px' }}>ROM range</p><p style={{ fontSize: 13, color: 'var(--ps-white)', margin: 0 }}>{vendorBid.price_low ? '$' + Number(vendorBid.price_low).toLocaleString() : ''}{vendorBid.price_low && vendorBid.price_high ? ' - ' : ''}{vendorBid.price_high ? '$' + Number(vendorBid.price_high).toLocaleString() : ''}</p></div>)}
-                          {bt !== 'ROM' && fp && (<div><p style={{ fontSize: 10, color: 'var(--ps-muted)', textTransform: 'uppercase', letterSpacing: '0.07em', margin: '0 0 3px' }}>Firm price</p><p style={{ fontSize: 13, color: 'var(--ps-white)', margin: 0 }}>${Number(fp).toLocaleString()}</p></div>)}
-                          {(da || dp) && (<div><p style={{ fontSize: 10, color: 'var(--ps-muted)', textTransform: 'uppercase', letterSpacing: '0.07em', margin: '0 0 3px' }}>Deposit</p><p style={{ fontSize: 13, color: 'var(--ps-white)', margin: 0 }}>{da ? '$' + Number(da).toLocaleString() : ''}{da && dp ? ' / ' : ''}{dp ? Number(dp).toLocaleString() + '%' : ''}</p></div>)}
-                          {vendorBid.timeline && (<div><p style={{ fontSize: 10, color: 'var(--ps-muted)', textTransform: 'uppercase', letterSpacing: '0.07em', margin: '0 0 3px' }}>Timeline</p><p style={{ fontSize: 13, color: 'var(--ps-white)', margin: 0 }}>{vendorBid.timeline}</p></div>)}
-                          {vendorBid.assumptions && (<div style={{ gridColumn: '1 / -1' }}><p style={{ fontSize: 10, color: 'var(--ps-muted)', textTransform: 'uppercase', letterSpacing: '0.07em', margin: '0 0 3px' }}>Assumptions</p><p style={{ fontSize: 12, color: 'var(--ps-text)', margin: 0, lineHeight: 1.5 }}>{vendorBid.assumptions}</p></div>)}
-                          {vendorBid.notes && (<div style={{ gridColumn: '1 / -1' }}><p style={{ fontSize: 10, color: 'var(--ps-muted)', textTransform: 'uppercase', letterSpacing: '0.07em', margin: '0 0 3px' }}>Notes</p><p style={{ fontSize: 12, color: 'var(--ps-text)', margin: 0, lineHeight: 1.5 }}>{vendorBid.notes}</p></div>)}
-                        </div>
-                        )
-                      })()}
-                          {vendorBid.quote_type === 'ROM' && (vendorBid.price_low || vendorBid.price_high) && (
+                          {(vendorBid.price_low || vendorBid.price_high) && (
                             <div>
-                              <p style={{ fontSize: 10, color: 'var(--ps-muted)', textTransform: 'uppercase', letterSpacing: '0.07em', margin: '0 0 3px' }}>ROM range</p>
+                              <p style={{ fontSize: 10, color: 'var(--ps-muted)', textTransform: 'uppercase', letterSpacing: '0.07em', margin: '0 0 3px' }}>Price range</p>
                               <p style={{ fontSize: 13, color: 'var(--ps-white)', margin: 0 }}>
-                                {vendorBid.price_low ? '$' + Number(vendorBid.price_low).toLocaleString() : ''}{vendorBid.price_low && vendorBid.price_high ? ' – ' : ''}{vendorBid.price_high ? '$' + Number(vendorBid.price_high).toLocaleString() : ''}
+                                {vendorBid.price_low ? '$' + Number(vendorBid.price_low).toLocaleString() : ''}{vendorBid.price_low && vendorBid.price_high ? ' - ' : ''}{vendorBid.price_high ? '$' + Number(vendorBid.price_high).toLocaleString() : ''}
                               </p>
                             </div>
                           )}
-                          {vendorBid.quote_type !== 'ROM' && vendorBid.firm_price && (
-                            <div>
-                              <p style={{ fontSize: 10, color: 'var(--ps-muted)', textTransform: 'uppercase', letterSpacing: '0.07em', margin: '0 0 3px' }}>Firm price</p>
-                              <p style={{ fontSize: 13, color: 'var(--ps-white)', margin: 0 }}>${Number(vendorBid.firm_price).toLocaleString()}</p>
-                            </div>
-                          )}
-                          {(vendorBid.deposit_amount || vendorBid.deposit_percentage) && (
-                            <div>
-                              <p style={{ fontSize: 10, color: 'var(--ps-muted)', textTransform: 'uppercase', letterSpacing: '0.07em', margin: '0 0 3px' }}>Deposit</p>
-                              <p style={{ fontSize: 13, color: 'var(--ps-white)', margin: 0 }}>
-                                {vendorBid.deposit_amount ? '$' + Number(vendorBid.deposit_amount).toLocaleString() : ''}
-                                {vendorBid.deposit_amount && vendorBid.deposit_percentage ? ' / ' : ''}
-                                {vendorBid.deposit_percentage ? Number(vendorBid.deposit_percentage).toLocaleString() + '%' : ''}
-                              </p>
-                            </div>
-                          )}
-                          {vendorBid.timeline && (
-                            <div>
-                              <p style={{ fontSize: 10, color: 'var(--ps-muted)', textTransform: 'uppercase', letterSpacing: '0.07em', margin: '0 0 3px' }}>Timeline</p>
-                              <p style={{ fontSize: 13, color: 'var(--ps-white)', margin: 0 }}>{vendorBid.timeline}</p>
-                            </div>
-                          )}
-                          {vendorBid.assumptions && (
-                            <div style={{ gridColumn: '1 / -1' }}>
-                              <p style={{ fontSize: 10, color: 'var(--ps-muted)', textTransform: 'uppercase', letterSpacing: '0.07em', margin: '0 0 3px' }}>Assumptions</p>
-                              <p style={{ fontSize: 12, color: 'var(--ps-text)', margin: 0, lineHeight: 1.5 }}>{vendorBid.assumptions}</p>
-                            </div>
-                          )}
-                          {vendorBid.notes && (
-                            <div style={{ gridColumn: '1 / -1' }}>
-                              <p style={{ fontSize: 10, color: 'var(--ps-muted)', textTransform: 'uppercase', letterSpacing: '0.07em', margin: '0 0 3px' }}>Notes</p>
-                              <p style={{ fontSize: 12, color: 'var(--ps-text)', margin: 0, lineHeight: 1.5 }}>{vendorBid.notes}</p>
-                            </div>
-                          )}
-                        </div>
-                      )}
                           {vendorBid.timeline && (
                             <div>
                               <p style={{ fontSize: 10, color: 'var(--ps-muted)', textTransform: 'uppercase', letterSpacing: '0.07em', margin: '0 0 3px' }}>Timeline</p>
