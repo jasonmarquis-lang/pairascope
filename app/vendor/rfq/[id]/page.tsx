@@ -26,6 +26,7 @@ export default function VendorRFQPage({ params }: { params: { id: string } }) {
   const [timeline,           setTimeline]           = useState('')
   const [assumptions,        setAssumptions]        = useState('')
   const [notes,              setNotes]              = useState('')
+  const [proposalFile,       setProposalFile]       = useState<File | null>(null)
 
   useEffect(() => {
     const load = async () => {
@@ -53,6 +54,7 @@ export default function VendorRFQPage({ params }: { params: { id: string } }) {
           setAssumptions(data.bid.assumptions || '')
           setNotes(data.bid.notes || '')
         }
+        // Note: existing proposal file shown as previously uploaded
       } catch (err) {
         console.error('[VendorRFQ] Load error:', err)
       } finally {
@@ -72,21 +74,23 @@ export default function VendorRFQPage({ params }: { params: { id: string } }) {
       const { data: sessionData } = await supabase.auth.getSession()
       const token = sessionData.session?.access_token
 
+      const formData = new FormData()
+      formData.append('rfqId', rfqId)
+      formData.append('bidType', bidType)
+      formData.append('priceLow', bidType === 'ROM' ? String(Number(priceLow) || '') : '')
+      formData.append('priceHigh', bidType === 'ROM' ? String(Number(priceHigh) || '') : '')
+      formData.append('firmPrice', bidType === 'Proposal' ? String(Number(firmPrice) || '') : '')
+      formData.append('depositAmount', bidType === 'Proposal' ? String(Number(depositAmount) || '') : '')
+      formData.append('depositPercentage', bidType === 'Proposal' ? String(Number(depositPercentage) || '') : '')
+      formData.append('timeline', timeline)
+      formData.append('assumptions', assumptions)
+      formData.append('notes', notes)
+      if (proposalFile) formData.append('proposalFile', proposalFile)
+
       const res = await fetch('/api/bids', {
         method:  'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + (token ?? '') },
-        body: JSON.stringify({
-          rfqId,
-          bidType,
-          priceLow:          bidType === 'ROM' ? Number(priceLow) || null  : null,
-          priceHigh:         bidType === 'ROM' ? Number(priceHigh) || null : null,
-          firmPrice:         bidType === 'Proposal' ? Number(firmPrice) || null : null,
-          depositAmount:     bidType === 'Proposal' ? Number(depositAmount) || null : null,
-          depositPercentage: bidType === 'Proposal' ? Number(depositPercentage) || null : null,
-          timeline,
-          assumptions,
-          notes,
-        }),
+        headers: { 'Authorization': 'Bearer ' + (token ?? '') },
+        body: formData,
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Failed to submit')
@@ -233,6 +237,21 @@ export default function VendorRFQPage({ params }: { params: { id: string } }) {
                 <textarea value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Any other notes for the artist..." rows={3} style={{ ...inputStyle, resize: 'vertical' }} />
               </div>
             </div>
+          </div>
+
+          {/* Proposal file upload */}
+          <div style={sectionStyle}>
+            <h2 style={{ fontSize: 14, fontWeight: 500, color: 'var(--ps-white)', margin: '0 0 16px' }}>Proposal document <span style={{ fontSize: 12, color: 'var(--ps-muted)', fontWeight: 400 }}>optional</span></h2>
+            <p style={{ fontSize: 12, color: 'var(--ps-muted)', margin: '0 0 12px' }}>Upload your proposal as a Word or PDF file. It will be visible to the artist alongside your response.</p>
+            <input
+              type="file"
+              accept=".pdf,.doc,.docx"
+              onChange={(e) => setProposalFile(e.target.files?.[0] ?? null)}
+              style={{ fontSize: 13, color: 'var(--ps-text)', fontFamily: 'inherit' }}
+            />
+            {proposalFile && (
+              <p style={{ fontSize: 12, color: 'var(--ps-teal)', marginTop: 8 }}>{proposalFile.name} selected</p>
+            )}
           </div>
 
           {error && <p style={{ fontSize: 13, color: '#E24B4A', marginBottom: 12 }}>{error}</p>}

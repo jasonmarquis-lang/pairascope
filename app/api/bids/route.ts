@@ -23,6 +23,7 @@ const B = {
   firmPrice:   'fldkpO6e8wvUy9gEg',
   depositAmt:  'fldaVTqkOpXBUijQG',
   depositPct:  'fldbXKSk7G9afhLW7',
+  proposalFile: 'fldANykokqunfqkyq',
 }
 
 async function getVendorByUser(userId: string, userEmail: string) {
@@ -103,7 +104,18 @@ export async function POST(req: NextRequest) {
     const userEmail = userData.user?.email
     if (!userId || !userEmail) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-    const { rfqId, bidType, priceLow, priceHigh, firmPrice, depositAmount, depositPercentage, timeline, assumptions, notes } = await req.json()
+    const formData = await req.formData()
+    const rfqId             = formData.get('rfqId') as string
+    const bidType           = formData.get('bidType') as string
+    const priceLow          = formData.get('priceLow') as string
+    const priceHigh         = formData.get('priceHigh') as string
+    const firmPrice         = formData.get('firmPrice') as string
+    const depositAmount     = formData.get('depositAmount') as string
+    const depositPercentage = formData.get('depositPercentage') as string
+    const timeline          = formData.get('timeline') as string
+    const assumptions       = formData.get('assumptions') as string
+    const notes             = formData.get('notes') as string
+    const proposalFile      = formData.get('proposalFile') as File | null
     if (!rfqId || !timeline) return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
 
     const vendor = await getVendorByUser(userId, userEmail)
@@ -156,6 +168,17 @@ export async function POST(req: NextRequest) {
       if (depositPercentage) bidFields[B.depositPct]  = Number(depositPercentage) / 100
       if (airtableVendorId) bidFields[B.vendor]    = [airtableVendorId]
       if (rfqId.startsWith('rec')) bidFields[B.rfq] = [rfqId]
+      // If a proposal file was uploaded, attach it via URL fetch
+      if (proposalFile) {
+        try {
+          const arrayBuf = await proposalFile.arrayBuffer()
+          const base64   = Buffer.from(arrayBuf).toString('base64')
+          const dataUrl  = 'data:' + proposalFile.type + ';base64,' + base64
+          bidFields[B.proposalFile] = [{ url: dataUrl, filename: proposalFile.name }]
+        } catch (fileErr) {
+          console.error('[/api/bids] File attach error:', fileErr)
+        }
+      }
       await base('Bids').create(bidFields)
     } catch (airtableErr) {
       console.error('[/api/bids] Airtable error:', JSON.stringify(airtableErr))
