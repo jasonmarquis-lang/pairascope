@@ -25,7 +25,6 @@ export default function Nav() {
     supabase.auth.getSession().then(({ data }) => setUser(data.session?.user ?? null))
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setUser(session?.user ?? null)
-
     })
     return () => subscription.unsubscribe()
   }, [])
@@ -49,7 +48,8 @@ export default function Nav() {
   }
 
   const firstName   = user?.user_metadata?.first_name
-  const displayName = firstName || user?.user_metadata?.display_name || user?.email?.split('@')[0] || 'Account'
+  const displayName = firstName || user?.user_metadata?.vendor_name || user?.user_metadata?.display_name || user?.email?.split('@')[0] || 'Account'
+  const isVendor    = !!user?.user_metadata?.is_vendor
 
   return (
     <>
@@ -137,10 +137,13 @@ export default function Nav() {
                 </div>
 
                 {/* Menu items */}
-                {[
-                  { label: 'My RFQs',          href: '/rfq-hub',  icon: '📋' },
-                  { label: 'Account settings',  href: '/account',  icon: '⚙️' },
-                ].map(({ label, href, icon }) => (
+                {(isVendor ? [
+                  { label: 'My Bids',           href: '/vendor',          icon: '📋' },
+                  { label: 'Vendor Settings',   href: '/vendor-settings', icon: '⚙️' },
+                ] : [
+                  { label: 'My RFQs',           href: '/rfq-hub',         icon: '📋' },
+                  { label: 'Account settings',  href: '/account',         icon: '⚙️' },
+                ]).map(({ label, href, icon }) => (
                   <button
                     key={href}
                     onClick={() => { router.push(href); setShowDropdown(false) }}
@@ -212,6 +215,23 @@ export default function Nav() {
             onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--ps-muted)'; e.currentTarget.style.borderColor = 'var(--ps-border)' }}
           >
             Sign in
+          </button>
+          <button
+            onClick={() => router.push('/vendor-portal')}
+            style={{
+              fontSize:   13,
+              color:      'var(--ps-muted)',
+              background: 'none',
+              padding:    '6px 14px',
+              borderRadius: 6,
+              border:     'none',
+              cursor:     'pointer',
+              fontFamily: 'inherit',
+            }}
+            onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--ps-white)' }}
+            onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--ps-muted)' }}
+          >
+            Vendor Portal
           </button>
         )}
       </nav>
