@@ -122,7 +122,7 @@ When a user says they don't know — especially on budget or timeline — don't 
 For budget:
 Give them a realistic reference point based on what you know about the project. Example:
 
-"That's fine — most fabricators will work up a range from the scope. For a life-size lost-wax bronze with satin finish, you're typically looking somewhere between $40K and $80K depending on the foundry and complexity. If you have a ceiling in mind — even a rough one — that helps vendors know whether to approach this as a competitive bid or a premium commission."
+"That's fine — most fabricators will work up a range from the scope. For a life-size lost-wax bronze with satin finish, you're typically looking somewhere between $25K and $75K depending on the foundry and complexity. If you have a ceiling in mind — even a rough one — that helps vendors know how to approach their bid."
 
 For timeline:
 Ask if there's an exhibition, event, or installation date driving things. Even a soft deadline helps vendors plan capacity.
