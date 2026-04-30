@@ -42,7 +42,33 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: true, action: 'magic_link_sent', vendorName })
     }
 
-    // New vendor - create Supabase account and send invite
+    // Check if email already exists in Supabase auth
+    const { data: existingUsers } = await supabaseAdmin.auth.admin.listUsers()
+    const existingAuthUser = existingUsers?.users?.find(u => u.email?.toLowerCase() === email.trim().toLowerCase())
+
+    if (existingAuthUser) {
+      // Email exists in auth but not linked to vendor - link it and send magic link
+      await supabaseAdmin.from('vendors').upsert({
+        user_id:     existingAuthUser.id,
+        airtable_id: airtableId,
+        email:       email.trim().toLowerCase(),
+        name:        vendorName,
+        vendor_id:   vendorId.trim(),
+      }, { onConflict: 'email' })
+      // Update user metadata to mark as vendor
+      await supabaseAdmin.auth.admin.updateUserById(existingAuthUser.id, {
+        user_metadata: { ...existingAuthUser.user_metadata, is_vendor: true, vendor_name: vendorName }
+      })
+      const { error: magicErr } = await supabaseAdmin.auth.admin.generateLink({
+        type: 'magiclink',
+        email: email.trim().toLowerCase(),
+        options: { redirectTo: 'https://www.pairascope.com/vendor?portal=true' }
+      })
+      if (magicErr) throw magicErr
+      return NextResponse.json({ success: true, action: 'magic_link_sent', vendorName })
+    }
+
+    // Brand new user - invite via email
     const { data: newUser, error: createErr } = await supabaseAdmin.auth.admin.inviteUserByEmail(
       email.trim().toLowerCase(),
       { redirectTo: 'https://www.pairascope.com/vendor?portal=true', data: { vendor_name: vendorName, is_vendor: true } }
