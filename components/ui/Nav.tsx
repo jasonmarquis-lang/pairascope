@@ -199,40 +199,42 @@ export default function Nav() {
             )}
           </div>
         ) : (
-          <button
-            onClick={() => setShowAuth(true)}
-            style={{
-              fontSize:   13,
-              color:      'var(--ps-muted)',
-              background: 'none',
-              padding:    '6px 14px',
-              borderRadius: 6,
-              border:     '0.5px solid var(--ps-border)',
-              cursor:     'pointer',
-              fontFamily: 'inherit',
-            }}
-            onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--ps-white)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.2)' }}
-            onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--ps-muted)'; e.currentTarget.style.borderColor = 'var(--ps-border)' }}
-          >
-            Sign in
-          </button>
-          <button
-            onClick={() => router.push('/vendor-portal')}
-            style={{
-              fontSize:   13,
-              color:      'var(--ps-muted)',
-              background: 'none',
-              padding:    '6px 14px',
-              borderRadius: 6,
-              border:     'none',
-              cursor:     'pointer',
-              fontFamily: 'inherit',
-            }}
-            onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--ps-white)' }}
-            onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--ps-muted)' }}
-          >
-            Vendor Portal
-          </button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+            <button
+              onClick={() => setShowAuth(true)}
+              style={{
+                fontSize:   13,
+                color:      'var(--ps-muted)',
+                background: 'none',
+                padding:    '6px 14px',
+                borderRadius: 6,
+                border:     '0.5px solid var(--ps-border)',
+                cursor:     'pointer',
+                fontFamily: 'inherit',
+              }}
+              onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--ps-white)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.2)' }}
+              onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--ps-muted)'; e.currentTarget.style.borderColor = 'var(--ps-border)' }}
+            >
+              Sign in
+            </button>
+            <button
+              onClick={() => router.push('/vendor-portal')}
+              style={{
+                fontSize:   13,
+                color:      'var(--ps-muted)',
+                background: 'none',
+                padding:    '6px 14px',
+                borderRadius: 6,
+                border:     'none',
+                cursor:     'pointer',
+                fontFamily: 'inherit',
+              }}
+              onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--ps-white)' }}
+              onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--ps-muted)' }}
+            >
+              Vendor Portal
+            </button>
+          </div>
         )}
       </nav>
 
