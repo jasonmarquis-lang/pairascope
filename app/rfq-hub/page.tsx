@@ -19,6 +19,7 @@ interface BidRecord {
   notes:              string | null
   status:             string
   created_at:         string
+  proposal_file_name: string | null
 }
 
 interface RFQRecord {

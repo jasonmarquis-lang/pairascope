@@ -138,7 +138,8 @@ export async function POST(req: NextRequest) {
         timeline,
         assumptions: assumptions || null,
         notes:       notes || null,
-        status:      'Submitted',
+        status:             'Submitted',
+        proposal_file_name: proposalFile?.name ?? null,
       }, { onConflict: 'rfq_id,vendor_id' })
       .select()
       .single()
