@@ -27,6 +27,13 @@ export default function ScopePanel({ snapshot, conversationId }: ScopePanelProps
     return () => subscription.unsubscribe()
   }, [])
 
+  // Auto-show login modal when scope turns green and user is not logged in
+  useEffect(() => {
+    if (snapshot.confidenceLevel === 'green' && user === false) {
+      setShowAuthModal(true)
+    }
+  }, [snapshot.confidenceLevel, user])
+
   const handleGenerateRFQ = () => {
     if (!user) {
       setShowAuthModal(true)
