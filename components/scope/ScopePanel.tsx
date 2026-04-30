@@ -25,6 +25,16 @@ export default function ScopePanel({ snapshot, conversationId }: ScopePanelProps
     return () => subscription.unsubscribe()
   }, [])
 
+  // Track if scope has ever been green - once green, stay green
+  const hasBeenGreen = snapshot.confidenceLevel === 'green' ||
+    (typeof window !== 'undefined' && sessionStorage.getItem('ps_scope_green_' + conversationId) === '1')
+
+  useEffect(() => {
+    if (snapshot.confidenceLevel === 'green') {
+      try { sessionStorage.setItem('ps_scope_green_' + conversationId, '1') } catch { /* ignore */ }
+    }
+  }, [snapshot.confidenceLevel, conversationId])
+
   // Auto-show login modal when scope turns green and user is not logged in
   useEffect(() => {
     if (snapshot.confidenceLevel === 'green' && user === false) {
@@ -119,7 +129,7 @@ export default function ScopePanel({ snapshot, conversationId }: ScopePanelProps
           <SnapshotFields snapshot={snapshot} />
         </div>
 
-        {snapshot.confidenceLevel === 'green' && (
+        {hasBeenGreen && (
           <div style={{ padding: '16px 20px', borderTop: '0.5px solid var(--ps-border)', flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 8 }}>
             <button
               onClick={handleGenerateRFQ}
