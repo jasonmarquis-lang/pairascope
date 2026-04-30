@@ -161,10 +161,12 @@ function RFQRow({ rfq, onContinue }: { rfq: RFQRecord; onContinue: () => void })
   const [expanded,   setExpanded]   = useState(false)
   const [bidMap,     setBidMap]     = useState<Record<string, BidRecord>>({})
   const [bidsLoaded, setBidsLoaded] = useState(false)
-  const [selecting,  setSelecting]  = useState<string | null>(null)
-  const [dealDone,   setDealDone]   = useState(false)
+  const [selecting,   setSelecting]   = useState<string | null>(null)
+  const [dealDone,    setDealDone]    = useState(false)
   const [depositUrl,  setDepositUrl]  = useState<string | null>(null)
   const [payingDeposit, setPayingDeposit] = useState(false)
+  const [comparison,  setComparison]  = useState<string | null>(null)
+  const [loadingComp, setLoadingComp] = useState(false)
 
   const style      = STATUS_STYLES[rfq.status] ?? STATUS_STYLES['Draft']
   const date       = new Date(rfq.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
@@ -180,9 +182,20 @@ function RFQRow({ rfq, onContinue }: { rfq: RFQRecord; onContinue: () => void })
         const res = await fetch('/api/rfq-bids?rfqId=' + rfq.id)
         if (res.ok) {
           const data = await res.json()
+          const allBids = data.bids ?? []
+
+          // Fetch AI comparison if 2+ bids
+          if (allBids.length >= 2) {
+            setLoadingComp(true)
+            fetch('/api/bids/compare?rfqId=' + rfq.id)
+              .then(r => r.json())
+              .then(d => { if (d.comparison) setComparison(d.comparison) })
+              .catch(() => {})
+              .finally(() => setLoadingComp(false))
+          }
 
           const map: Record<string, BidRecord> = {}
-          for (const b of (data.bids ?? [])) {
+          for (const b of (allBids)) {
             map[b.vendor_name.trim().toLowerCase()] = b
           }
           setBidMap(map)
@@ -268,6 +281,19 @@ function RFQRow({ rfq, onContinue }: { rfq: RFQRecord; onContinue: () => void })
 
       {expanded && (
         <div style={{ borderTop: '0.5px solid var(--ps-border)' }}>
+
+          {/* AI bid comparison box */}
+          {(loadingComp || comparison) && (
+            <div style={{ margin: '16px 20px 0', padding: '14px 16px', backgroundColor: 'rgba(29,158,117,0.06)', border: '0.5px solid rgba(29,158,117,0.25)', borderRadius: 10 }}>
+              <p style={{ fontSize: 11, color: 'var(--ps-teal)', textTransform: 'uppercase', letterSpacing: '0.07em', margin: '0 0 8px', fontWeight: 500 }}>Bid comparison</p>
+              {loadingComp && <p style={{ fontSize: 12, color: 'var(--ps-muted)', margin: 0 }}>Analyzing bids...</p>}
+              {comparison && (
+                <div style={{ fontSize: 12, color: 'var(--ps-text)', lineHeight: 1.7, whiteSpace: 'pre-wrap' }}>
+                  {comparison}
+                </div>
+              )}
+            </div>
+          )}
 
           {vendorList.length > 0 && (
             <div style={{ padding: '16px 20px', borderBottom: '0.5px solid var(--ps-border)' }}>
