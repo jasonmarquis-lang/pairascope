@@ -1,6 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
 import Airtable from 'airtable'
+import * as postmark from 'postmark'
 import { supabaseAdmin } from '@/lib/supabase'
+
+async function getMailer() {
+  const pmClient = new postmark.ServerClient(process.env.POSTMARK_API_KEY ?? '')
+  const FROM = process.env.POSTMARK_FROM_EMAIL ?? 'create@pairascope.com'
+  return { pmClient, FROM }
+}
 
 const base = new Airtable({ apiKey: process.env.AIRTABLE_API_KEY! }).base(process.env.AIRTABLE_BASE_ID!)
 
@@ -33,12 +40,29 @@ export async function POST(req: NextRequest) {
 
     if (existingVendor?.user_id) {
       // Vendor already has an account - send magic link
-      const { error: magicErr } = await supabaseAdmin.auth.admin.generateLink({
+      const { error: otpErr } = await supabaseAdmin.auth.admin.generateLink({
         type: 'magiclink',
         email: email.trim().toLowerCase(),
         options: { redirectTo: 'https://www.pairascope.com/vendor?portal=true' }
       })
-      if (magicErr) throw magicErr
+      if (otpErr) throw otpErr
+      // Send email via Postmark
+      const { pmClient, FROM } = await getMailer()
+      await pmClient.sendEmail({
+        From:     FROM,
+        To:       email.trim().toLowerCase(),
+        Subject:  'Your Pairascope Vendor Portal login link',
+        TextBody: 'Hi ' + vendorName + ',
+
+Click the link below to access your Pairascope vendor portal:
+
+https://www.pairascope.com/vendor?portal=true
+
+(This link expires in 24 hours.)
+
+Best,
+Pairascope',
+      })
       return NextResponse.json({ success: true, action: 'magic_link_sent', vendorName })
     }
 
@@ -47,7 +71,7 @@ export async function POST(req: NextRequest) {
     const existingAuthUser = existingUsers?.users?.find(u => u.email?.toLowerCase() === email.trim().toLowerCase())
 
     if (existingAuthUser) {
-      // Email exists in auth but not linked to vendor - link it and send magic link
+      // Email exists in auth but not linked to vendor - link it and send login link
       await supabaseAdmin.from('vendors').upsert({
         user_id:     existingAuthUser.id,
         airtable_id: airtableId,
@@ -55,16 +79,32 @@ export async function POST(req: NextRequest) {
         name:        vendorName,
         vendor_id:   vendorId.trim(),
       }, { onConflict: 'email' })
-      // Update user metadata to mark as vendor
       await supabaseAdmin.auth.admin.updateUserById(existingAuthUser.id, {
         user_metadata: { ...existingAuthUser.user_metadata, is_vendor: true, vendor_name: vendorName }
       })
-      const { error: magicErr } = await supabaseAdmin.auth.admin.generateLink({
+      const { data: linkData, error: linkErr } = await supabaseAdmin.auth.admin.generateLink({
         type: 'magiclink',
         email: email.trim().toLowerCase(),
         options: { redirectTo: 'https://www.pairascope.com/vendor?portal=true' }
       })
-      if (magicErr) throw magicErr
+      if (linkErr) throw linkErr
+      const magicUrl = linkData?.properties?.action_link || 'https://www.pairascope.com/vendor-portal'
+      const { pmClient, FROM } = await getMailer()
+      await pmClient.sendEmail({
+        From:     FROM,
+        To:       email.trim().toLowerCase(),
+        Subject:  'Your Pairascope Vendor Portal login link',
+        TextBody: 'Hi ' + vendorName + ',
+
+Click the link below to access your Pairascope vendor portal:
+
+' + magicUrl + '
+
+(This link expires in 24 hours.)
+
+Best,
+Pairascope',
+      })
       return NextResponse.json({ success: true, action: 'magic_link_sent', vendorName })
     }
 
@@ -83,6 +123,30 @@ export async function POST(req: NextRequest) {
       name:        vendorName,
       vendor_id:   vendorId.trim(),
     }, { onConflict: 'email' })
+
+    // Send welcome email via Postmark
+    const { data: linkData2 } = await supabaseAdmin.auth.admin.generateLink({
+      type: 'magiclink',
+      email: email.trim().toLowerCase(),
+      options: { redirectTo: 'https://www.pairascope.com/vendor?portal=true' }
+    })
+    const magicUrl2 = linkData2?.properties?.action_link || 'https://www.pairascope.com/vendor-portal'
+    const { pmClient: pm2, FROM: from2 } = await getMailer()
+    await pm2.sendEmail({
+      From:     from2,
+      To:       email.trim().toLowerCase(),
+      Subject:  'Welcome to Pairascope — access your vendor portal',
+      TextBody: 'Hi ' + vendorName + ',
+
+You have been invited to the Pairascope vendor portal. Click the link below to set up your account and access your dashboard:
+
+' + magicUrl2 + '
+
+(This link expires in 24 hours.)
+
+Best,
+Pairascope',
+    })
 
     return NextResponse.json({ success: true, action: 'invite_sent', vendorName })
   } catch (err: unknown) {
