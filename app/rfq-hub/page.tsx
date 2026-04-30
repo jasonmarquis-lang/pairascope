@@ -285,9 +285,6 @@ function RFQRow({ rfq, onContinue }: { rfq: RFQRecord; onContinue: () => void })
                       <div style={{ padding: '10px 14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                         <span style={{ fontSize: 13, color: 'var(--ps-text)' }}>{vendorName}</span>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                          <span style={{ fontSize: 11, color: vsColor, backgroundColor: vsBg, padding: '2px 8px', borderRadius: 20, fontWeight: 500 }}>
-                            {vendorStatus}
-                          </span>
                           {vendorBid && !dealDone && (vendorStatus === 'Responded' || vendorStatus === 'Selected') && (
                             <button
                               onClick={(e) => { e.stopPropagation(); handleSelectVendor(vendorBid) }}
@@ -306,6 +303,9 @@ function RFQRow({ rfq, onContinue }: { rfq: RFQRecord; onContinue: () => void })
                               {payingDeposit ? 'Generating...' : 'Pay deposit'}
                             </button>
                           )}
+                          <span style={{ fontSize: 11, color: vsColor, backgroundColor: vsBg, padding: '2px 8px', borderRadius: 20, fontWeight: 500 }}>
+                            {vendorStatus}
+                          </span>
                           {depositUrl && (
                             <a href={depositUrl} target="_blank" rel="noopener noreferrer" style={{ fontSize: 11, color: 'var(--ps-teal)', textDecoration: 'none' }}>
                               Open payment link →
