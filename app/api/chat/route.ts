@@ -155,6 +155,7 @@ export async function POST(req: NextRequest) {
             confidenceScore: parsed.confidenceScore || 0,
             confidenceLevel: parsed.confidenceLevel || 'red',
             aiSummary:       parsed.aiSummary       || undefined,
+            projectTitle:    parsed.projectTitle    || undefined,
           }
         } catch (extractErr) {
           console.error('[Extraction] Failed to parse:', extractErr)
@@ -202,6 +203,7 @@ export async function POST(req: NextRequest) {
             confidence_level: snapshot.confidenceLevel,
             confidence_score: snapshot.confidenceScore,
             ai_summary:       snapshot.aiSummary,
+            project_title:    snapshot.projectTitle,
             updated_at:       new Date().toISOString(),
           }, { onConflict: 'conversation_id' })
 

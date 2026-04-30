@@ -30,7 +30,7 @@ export default function RFQReview({ snapshot, scopeDocument, conversationId, onC
   const [sent,            setSent]            = useState(false)
   const [error,           setError]           = useState('')
 
-  const projectName = [snapshot.projectType, snapshot.material, snapshot.location]
+  const projectName = snapshot.projectTitle || [snapshot.projectType, snapshot.material, snapshot.location]
     .filter(Boolean).join(' \u2013 ') || 'Art Project'
 
   useEffect(() => {

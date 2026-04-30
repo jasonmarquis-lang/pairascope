@@ -44,6 +44,7 @@ export interface ProjectSnapshot {
   confidenceLevel:          ConfidenceLevel
   confidenceScore:          number
   aiSummary?:               string
+  projectTitle?:            string
 }
 
 // ─── RFQ ───────────────────────────────────────────────────────────────────
