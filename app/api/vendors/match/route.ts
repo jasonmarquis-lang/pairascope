@@ -16,17 +16,27 @@ export async function POST(req: NextRequest) {
   try {
     const { snapshot } = await req.json()
 
-    const vendorRecords = await base('Vendors').select({ filterByFormula: '{Active} = TRUE()', fields: ['Vendor Name', 'Primary Services', 'Contact Name', 'Email', 'Phone', 'Website', 'Capabilities', 'Short Bio', 'Vendor Rating', 'Match Notes'] }).all()
+    const vendorRecords = await base('Vendors').select({ filterByFormula: '{Active} = TRUE()', fields: ['Vendor Name', 'Primary Services', 'Outsourced Services', 'Contact Name', 'Email', 'Phone', 'Website', 'Capabilities', 'Short Bio', 'Vendor Rating', 'Match Notes', 'City', 'State/Province', 'Country'] }).all()
     const feedbackRecords = await base('Vendor Feedback').select({ maxRecords: 50, sort: [{ field: 'Date', direction: 'desc' }], fields: ['Feedback Name', 'Vendor', 'Action', 'Reason', 'Project Type'] }).all()
 
     const vendors = vendorRecords.map((r) => ({
-      id: r.getId(), name: str(r.get('Vendor Name')),
+      id: r.getId(),
+      name: str(r.get('Vendor Name')),
+      primaryServices: (r.get('Primary Services') as string[] | undefined) ?? [],
+      secondaryServices: (r.get('Outsourced Services') as string[] | undefined) ?? [],
       primaryService: ((r.get('Primary Services') as string[] | undefined) ?? [])[0] ?? '',
-      contactName: str(r.get('Contact Name')), email: str(r.get('Email')),
-      phone: str(r.get('Phone')), website: str(r.get('Website')),
-      capabilities: str(r.get('Capabilities')), shortBio: str(r.get('Short Bio')),
+      city: str(r.get('City')),
+      state: str(r.get('State/Province')),
+      country: str(r.get('Country')),
+      contactName: str(r.get('Contact Name')),
+      email: str(r.get('Email')),
+      phone: str(r.get('Phone')),
+      website: str(r.get('Website')),
+      capabilities: str(r.get('Capabilities')),
+      shortBio: str(r.get('Short Bio')),
       rating: r.get('Vendor Rating') as number ?? 0,
-      matchNotes: str(r.get('Match Notes')), active: true, location: '', materials: '', reasoning: '',
+      matchNotes: str(r.get('Match Notes')),
+      reasoning: '',
     }))
 
     const feedbackSummary = feedbackRecords.map((r) => {
@@ -35,7 +45,7 @@ export async function POST(req: NextRequest) {
     }).join('\n')
 
     const vendorList = vendors.map((v, i) =>
-      `[${i}] ${v.name} | Services: ${v.primaryService} | Rating: ${v.rating}/5\nCapabilities: ${v.capabilities}\nMatch Notes: ${v.matchNotes || 'None'}`
+      `[${i}] ${v.name} | Location: ${[v.city, v.state, v.country].filter(Boolean).join(', ') || 'Unknown'} | Services: ${v.primaryServices.join(', ')} | Rating: ${v.rating}/5\nSecondary: ${v.secondaryServices.join(', ') || 'None'}\nCapabilities: ${v.capabilities}\nMatch Notes: ${v.matchNotes || 'None'}`
     ).join('\n\n')
 
     const prompt = `You are a vendor matching expert for Pairascope, connecting artists with fabricators, shippers, and installers.
@@ -57,7 +67,13 @@ VENDORS:
 ${vendorList}
 
 Select the best-matched vendors. Return ONLY valid JSON array, no preamble.
-Rules: match primary services to project needs, max 5 vendors, use past feedback to inform selections, write 1-3 sentence reasoning per vendor explaining why they fit THIS specific project.
+Rules:
+- Prioritize vendors whose Primary Services match the project service track
+- Consider vendor location relative to project location
+- Consider Secondary Services relevance
+- Use past feedback to include/exclude vendors
+- Max 5 vendors
+- Write 1-3 sentence reasoning per vendor explaining why they fit THIS specific project
 
 [{"vendorIndex": 0, "reasoning": "explanation"}]`
 

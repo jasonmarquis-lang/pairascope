@@ -4,7 +4,6 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import AuthModal from '@/components/ui/AuthModal'
-import RFQReview from '@/components/rfq/RFQReview'
 import type { ProjectSnapshot, ConfidenceLevel } from '@/types'
 
 interface ScopePanelProps {
@@ -15,7 +14,6 @@ interface ScopePanelProps {
 export default function ScopePanel({ snapshot, conversationId }: ScopePanelProps) {
   const router = useRouter()
   const [showAuthModal, setShowAuthModal] = useState(false)
-  const [showRFQ,       setShowRFQ]       = useState(false)
   const [isBlurred,     setIsBlurred]     = useState(false)
   const [user,          setUser]          = useState<boolean | null>(null)
 
@@ -39,7 +37,14 @@ export default function ScopePanel({ snapshot, conversationId }: ScopePanelProps
       setShowAuthModal(true)
       return
     }
-    setShowRFQ(true)
+    try {
+      sessionStorage.setItem('ps_scope_editor', JSON.stringify({
+        snapshot,
+        scopeDocument: buildScopeDocument(),
+        conversationId,
+      }))
+    } catch { /* ignore */ }
+    router.push('/scope-editor')
   }
 
   const handleSeeVendors = () => {
@@ -54,7 +59,7 @@ export default function ScopePanel({ snapshot, conversationId }: ScopePanelProps
   const handleAuthSuccess = () => {
     setShowAuthModal(false)
     setIsBlurred(false)
-    setShowRFQ(true)
+    handleGenerateRFQ()
   }
 
   const buildScopeDocument = () => {
@@ -92,17 +97,6 @@ export default function ScopePanel({ snapshot, conversationId }: ScopePanelProps
     lines.push('• Key assumptions and exclusions')
     lines.push('• Any concerns or clarifying questions')
     return lines.join('\n')
-  }
-
-  if (showRFQ) {
-    return (
-      <RFQReview
-        snapshot={snapshot}
-        scopeDocument={buildScopeDocument()}
-        conversationId={conversationId}
-        onClose={() => setShowRFQ(false)}
-      />
-    )
   }
 
   return (
