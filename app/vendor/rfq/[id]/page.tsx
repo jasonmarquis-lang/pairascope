@@ -158,6 +158,30 @@ export default function VendorRFQPage({ params }: { params: { id: string } }) {
             </pre>
           </div>
 
+          {/* Schedule briefing */}
+          <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 16 }}>
+            <button
+              onClick={async () => {
+                const { data: { session } } = await supabase.auth.getSession()
+                const token = session?.access_token ?? ''
+                const res = await fetch('/api/meeting/prepare', {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': 'Bearer ' + token,
+                  },
+                  body: JSON.stringify({ rfqId }),
+                })
+                const { calendarUrl, error } = await res.json()
+                if (calendarUrl) window.open(calendarUrl, '_blank')
+                else console.error('[schedule meeting]', error)
+              }}
+              style={{ padding: '8px 16px', backgroundColor: 'transparent', color: 'var(--ps-teal)', border: '0.5px solid rgba(29,158,117,0.4)', borderRadius: 8, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit', fontWeight: 500 }}
+            >
+              Schedule briefing call
+            </button>
+          </div>
+
           {/* Bid type toggle */}
           <div style={sectionStyle}>
             <h2 style={{ fontSize: 14, fontWeight: 500, color: 'var(--ps-white)', margin: '0 0 16px' }}>Response type</h2>

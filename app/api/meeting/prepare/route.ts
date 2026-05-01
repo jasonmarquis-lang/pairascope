@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import Airtable from 'airtable'
+import { supabaseAdmin } from '@/lib/supabase'
 import { buildGoogleCalendarUrl } from '@/app/lib/meetingUrl'
 
 const base = new Airtable({ apiKey: process.env.AIRTABLE_API_KEY })
@@ -9,9 +10,9 @@ export async function POST(req: NextRequest) {
   try {
     const { rfqId, vendorId } = await req.json()
 
-    if (!rfqId || !vendorId) {
+    if (!rfqId) {
       return NextResponse.json(
-        { error: 'rfqId and vendorId are required' },
+        { error: 'rfqId is required' },
         { status: 400 }
       )
     }
@@ -29,13 +30,33 @@ export async function POST(req: NextRequest) {
       projectName = projectRecord.get('Project Name') as string || 'Your Project'
     }
 
-    // Fetch vendor email from Vendors table
-    const vendorRecord = await base('Vendors').find(vendorId)
-    const vendorEmail  = vendorRecord.get('Email') as string || ''
+    // Resolve vendor email
+    // Case A: called from RFQ Hub with explicit vendorId (artist scheduling on behalf)
+    // Case B: called from Vendor Portal — resolve from auth token
+    let vendorEmail = ''
+
+    if (vendorId) {
+      const vendorRecord = await base('Vendors').find(vendorId)
+      vendorEmail = vendorRecord.get('Email') as string || ''
+    } else {
+      // Resolve from bearer token
+      const authHeader = req.headers.get('authorization')
+      if (authHeader?.startsWith('Bearer ')) {
+        const token = authHeader.replace('Bearer ', '')
+        const { data: { user } } = await supabaseAdmin.auth.getUser(token)
+        if (user?.email) {
+          // Look up vendor by email in Airtable
+          const vendors = await base('Vendors')
+            .select({ filterByFormula: `{Email} = "${user.email}"`, maxRecords: 1 })
+            .all()
+          vendorEmail = vendors[0]?.get('Email') as string || user.email
+        }
+      }
+    }
 
     if (!vendorEmail) {
       return NextResponse.json(
-        { error: 'No email found for this vendor' },
+        { error: 'Could not resolve vendor email' },
         { status: 400 }
       )
     }
