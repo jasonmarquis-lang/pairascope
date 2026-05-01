@@ -12,6 +12,26 @@ function str(val: unknown): string {
   return String(val)
 }
 
+function scoreLocation(vendorCity: string, vendorState: string, vendorCountry: string, projectLocation: string): string {
+  if (!projectLocation || projectLocation === 'Unknown') return 'location unknown'
+  const loc = projectLocation.toLowerCase()
+  const vState = vendorState.toLowerCase()
+  const vCity = vendorCity.toLowerCase()
+  const vCountry = vendorCountry.toLowerCase()
+
+  // Check city match
+  if (vCity && loc.includes(vCity)) return 'same city'
+  // Check state match
+  if (vState && loc.includes(vState)) return 'same state/region'
+  // Check country match — US variations
+  const usTerms = ['united states', 'usa', 'u.s.', 'us,', ', us']
+  const isProjectUS = usTerms.some(t => loc.includes(t)) || /,\s*(ca|ny|tx|fl|il|wa|co|ma|az|nv|ga|nc|oh|pa|mi|mn|or|ct|nj)/i.test(projectLocation)
+  const isVendorUS = vCountry === 'united states' || vCountry === 'usa' || vCountry === 'us'
+  if (isProjectUS && isVendorUS) return 'same country (US)'
+  if (vCountry && loc.includes(vCountry)) return 'same country'
+  return 'different region'
+}
+
 export async function POST(req: NextRequest) {
   try {
     const { snapshot } = await req.json()
@@ -44,9 +64,10 @@ export async function POST(req: NextRequest) {
       return `- ${str(r.get('Action'))}: ${vendorLinks?.[0]?.name ?? 'Unknown'} for ${str(r.get('Project Type'))} — ${str(r.get('Reason'))}`
     }).join('\n')
 
-    const vendorList = vendors.map((v, i) =>
-      `[${i}] ${v.name} | Location: ${[v.city, v.state, v.country].filter(Boolean).join(', ') || 'Unknown'} | Services: ${v.primaryServices.join(', ')} | Rating: ${v.rating}/5\nSecondary: ${v.secondaryServices.join(', ') || 'None'}\nCapabilities: ${v.capabilities}\nMatch Notes: ${v.matchNotes || 'None'}`
-    ).join('\n\n')
+    const vendorList = vendors.map((v, i) => {
+      const locScore = scoreLocation(v.city, v.state, v.country, snapshot.location || '')
+      return `[${i}] ${v.name} | Location: ${[v.city, v.state, v.country].filter(Boolean).join(', ') || 'Unknown'} (${locScore}) | Services: ${v.primaryServices.join(', ')} | Rating: ${v.rating}/5\nSecondary: ${v.secondaryServices.join(', ') || 'None'}\nCapabilities: ${v.capabilities}\nMatch Notes: ${v.matchNotes || 'None'}`
+    }).join('\n\n')
 
     const prompt = `You are a vendor matching expert for Pairascope, connecting artists with fabricators, shippers, and installers.
 
@@ -69,7 +90,7 @@ ${vendorList}
 Select the best-matched vendors. Return ONLY valid JSON array, no preamble.
 Rules:
 - Prioritize vendors whose Primary Services match the project service track
-- Consider vendor location relative to project location
+- Prefer vendors with 'same city' or 'same state/region' location score for installation and shipping projects where proximity matters. For fabrication, same country is usually sufficient. Note the location score shown in parentheses next to each vendor's location.
 - Consider Secondary Services relevance
 - Use past feedback to include/exclude vendors
 - Max 5 vendors
