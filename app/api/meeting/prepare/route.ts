@@ -7,26 +7,37 @@ const base = new Airtable({ apiKey: process.env.AIRTABLE_API_KEY })
 
 export async function POST(req: NextRequest) {
   try {
-    const { rfqId, vendorEmail } = await req.json()
+    const { rfqId, vendorId } = await req.json()
 
-    if (!rfqId || !vendorEmail) {
+    if (!rfqId || !vendorId) {
       return NextResponse.json(
-        { error: 'rfqId and vendorEmail are required' },
+        { error: 'rfqId and vendorId are required' },
         { status: 400 }
       )
     }
 
-    const rfqRecord = await base('RFQs').find(rfqId)
-
+    // Fetch RFQ
+    const rfqRecord     = await base('RFQs').find(rfqId)
     const rfqTitle      = rfqRecord.get('RFQ Title')      as string || 'Untitled RFQ'
     const scopeDocument = rfqRecord.get('Scope Document') as string || ''
 
+    // Fetch linked Project name
     const linkedProjects = rfqRecord.get('Linked Project') as string[] | undefined
     let projectName = 'Your Project'
-
     if (linkedProjects && linkedProjects.length > 0) {
       const projectRecord = await base('Projects').find(linkedProjects[0])
       projectName = projectRecord.get('Project Name') as string || 'Your Project'
+    }
+
+    // Fetch vendor email from Vendors table
+    const vendorRecord = await base('Vendors').find(vendorId)
+    const vendorEmail  = vendorRecord.get('Email') as string || ''
+
+    if (!vendorEmail) {
+      return NextResponse.json(
+        { error: 'No email found for this vendor' },
+        { status: 400 }
+      )
     }
 
     const calendarUrl = buildGoogleCalendarUrl({
