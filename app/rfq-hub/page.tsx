@@ -167,6 +167,7 @@ function RFQRow({ rfq, onContinue }: { rfq: RFQRecord; onContinue: () => void })
   const [payingDeposit, setPayingDeposit] = useState(false)
   const [comparison,  setComparison]  = useState<string | null>(null)
   const [loadingComp, setLoadingComp] = useState(false)
+  const [bidCount,    setBidCount]    = useState(0)
 
   const style      = STATUS_STYLES[rfq.status] ?? STATUS_STYLES['Draft']
   const date       = new Date(rfq.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
@@ -184,21 +185,13 @@ function RFQRow({ rfq, onContinue }: { rfq: RFQRecord; onContinue: () => void })
           const data = await res.json()
           const allBids = data.bids ?? []
 
-          // Fetch AI comparison if 2+ bids
-          if (allBids.length >= 2) {
-            setLoadingComp(true)
-            fetch('/api/bids/compare?rfqId=' + rfq.id)
-              .then(r => r.json())
-              .then(d => { if (d.comparison) setComparison(d.comparison) })
-              .catch(() => {})
-              .finally(() => setLoadingComp(false))
-          }
 
           const map: Record<string, BidRecord> = {}
           for (const b of (allBids)) {
             map[b.vendor_name.trim().toLowerCase()] = b
           }
           setBidMap(map)
+          setBidCount(allBids.length)
         }
       } catch (e) {
         console.error('[RFQ Hub] bid fetch error:', e)
@@ -206,6 +199,18 @@ function RFQRow({ rfq, onContinue }: { rfq: RFQRecord; onContinue: () => void })
       setBidsLoaded(true)
     }
   }
+
+  // Re-run comparison when bid count changes
+  useEffect(() => {
+    if (bidCount >= 2) {
+      setLoadingComp(true)
+      fetch('/api/bids/compare?rfqId=' + rfq.id)
+        .then(r => r.json())
+        .then(d => { if (d.comparison) setComparison(d.comparison) })
+        .catch(() => {})
+        .finally(() => setLoadingComp(false))
+    }
+  }, [bidCount, rfq.id])
 
   const handleSelectVendor = async (bid: BidRecord) => {
     setSelecting(bid.id)
