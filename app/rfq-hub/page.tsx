@@ -315,24 +315,6 @@ function RFQRow({ rfq, onContinue }: { rfq: RFQRecord; onContinue: () => void })
                     <div key={i} style={{ backgroundColor: 'var(--ps-bg)', borderRadius: 8, border: '0.5px solid var(--ps-border)', overflow: 'hidden' }}>
                       <div style={{ padding: '10px 14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                         <span style={{ fontSize: 13, color: 'var(--ps-text)' }}>{vendorName}</span>
-                        <button
-                          onClick={async (e) => {
-                            e.stopPropagation()
-                            const vendorId = rfq.vendor_ids?.[i] ?? ''
-                            if (!vendorId) return
-                            const res = await fetch('/api/meeting/prepare', {
-                              method: 'POST',
-                              headers: { 'Content-Type': 'application/json' },
-                              body: JSON.stringify({ rfqId: rfq.id, vendorId }),
-                            })
-                            const { calendarUrl, error } = await res.json()
-                            if (calendarUrl) window.open(calendarUrl, '_blank')
-                            else console.error('[schedule meeting]', error)
-                          }}
-                          style={{ padding: '4px 12px', backgroundColor: 'transparent', color: 'var(--ps-teal)', border: '0.5px solid rgba(29,158,117,0.4)', borderRadius: 6, fontSize: 11, cursor: 'pointer', fontFamily: 'inherit', fontWeight: 500 }}
-                        >
-                          Schedule briefing
-                        </button>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                           {vendorBid && !dealDone && (vendorStatus === 'Responded' || vendorStatus === 'Selected') && (
                             <button
@@ -352,6 +334,25 @@ function RFQRow({ rfq, onContinue }: { rfq: RFQRecord; onContinue: () => void })
                               {payingDeposit ? 'Generating...' : 'Pay deposit'}
                             </button>
                           )}
+                          
+                        <button
+                          onClick={async (e) => {
+                            e.stopPropagation()
+                            const vendorId = rfq.vendor_ids?.[i] ?? ''
+                            if (!vendorId) return
+                            const res = await fetch('/api/meeting/prepare', {
+                              method: 'POST',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({ rfqId: rfq.id, vendorId }),
+                            })
+                            const { calendarUrl, error } = await res.json()
+                            if (calendarUrl) window.open(calendarUrl, '_blank')
+                            else console.error('[schedule meeting]', error)
+                          }}
+                          style={{ padding: '4px 12px', backgroundColor: 'transparent', color: 'var(--ps-teal)', border: '0.5px solid rgba(29,158,117,0.4)', borderRadius: 6, fontSize: 11, cursor: 'pointer', fontFamily: 'inherit', fontWeight: 500 }}
+                        >
+                          Schedule briefing
+                        </button>
                           <span style={{ fontSize: 11, color: vsColor, backgroundColor: vsBg, padding: '2px 8px', borderRadius: 20, fontWeight: 500 }}>
                             {vendorStatus}
                           </span>
