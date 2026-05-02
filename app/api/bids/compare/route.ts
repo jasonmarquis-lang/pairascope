@@ -1,8 +1,10 @@
+export const dynamic = 'force-dynamic'
+
 import { NextRequest, NextResponse } from 'next/server'
 import Anthropic from '@anthropic-ai/sdk'
 import { supabaseAdmin } from '@/lib/supabase'
 
-const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! })
+const getAnthropic = () => new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY ?? '' })
 
 export async function GET(req: NextRequest) {
   try {
@@ -48,7 +50,7 @@ Keep it concise — 6 to 10 bullets maximum. Plain text only, no bold or markdow
 BIDS:
 ${bidSummaries}`
 
-    const response = await anthropic.messages.create({
+    const response = await getAnthropic().messages.create({
       model: 'claude-haiku-4-5',
       max_tokens: 600,
       messages: [{ role: 'user', content: prompt }],

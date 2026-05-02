@@ -1,8 +1,13 @@
+export const dynamic = 'force-dynamic'
+
 import { NextRequest, NextResponse } from 'next/server'
 import Airtable from 'airtable'
 import { supabaseAdmin } from '@/lib/supabase'
 
-const base = new Airtable({ apiKey: process.env.AIRTABLE_API_KEY! }).base(process.env.AIRTABLE_BASE_ID!)
+const getBase = () => {
+  if (!process.env.AIRTABLE_API_KEY) throw new Error('AIRTABLE_API_KEY not set')
+  return new Airtable({ apiKey: process.env.AIRTABLE_API_KEY }).base(process.env.AIRTABLE_BASE_ID!)
+}
 
 const A = {
   fullName:   'fldbPiuuDL1ETs4cX',
@@ -47,14 +52,14 @@ export async function POST(req: NextRequest) {
       fields[A.website] = url
     }
 
-    const existing = await base('Accounts')
+    const existing = await getBase()('Accounts')
       .select({ filterByFormula: `{Email} = "${email}"`, maxRecords: 1 })
       .all()
 
     if (existing.length > 0) {
-      await base('Accounts').update(existing[0].getId(), fields)
+      await getBase()('Accounts').update(existing[0].getId(), fields)
     } else {
-      await base('Accounts').create(fields)
+      await getBase()('Accounts').create(fields)
     }
 
     return NextResponse.json({ success: true })
@@ -73,7 +78,7 @@ export async function GET(req: NextRequest) {
     const email = userData.user?.email
     if (!email) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-    const records = await base('Accounts')
+    const records = await getBase()('Accounts')
       .select({ filterByFormula: `{Email} = "${email}"`, maxRecords: 1 })
       .all()
 

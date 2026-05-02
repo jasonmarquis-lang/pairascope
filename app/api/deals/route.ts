@@ -1,9 +1,14 @@
+export const dynamic = 'force-dynamic'
+
 import { NextRequest, NextResponse } from 'next/server'
 import Airtable from 'airtable'
 import { supabaseAdmin } from '@/lib/supabase'
 import { getAccountIdByEmail } from '@/lib/airtable'
 
-const base = new Airtable({ apiKey: process.env.AIRTABLE_API_KEY! }).base(process.env.AIRTABLE_BASE_ID!)
+const getBase = () => {
+  if (!process.env.AIRTABLE_API_KEY) throw new Error('AIRTABLE_API_KEY not set')
+  return new Airtable({ apiKey: process.env.AIRTABLE_API_KEY }).base(process.env.AIRTABLE_BASE_ID!)
+}
 
 export async function POST(req: NextRequest) {
   try {
@@ -23,7 +28,7 @@ export async function POST(req: NextRequest) {
     // Find Airtable Project record
     let airtableProjectId: string | null = null
     if (rfqData?.conversation_id) {
-      const projects = await base('Projects')
+      const projects = await getBase()('Projects')
         .select({ filterByFormula: '{Supabase Conversation ID} = "' + rfqData.conversation_id + '"', maxRecords: 1 })
         .all()
       airtableProjectId = projects[0]?.getId() ?? null
@@ -34,7 +39,7 @@ export async function POST(req: NextRequest) {
 
     // Find Airtable Vendor record
     let airtableVendorId: string | null = null
-    const vendors = await base('Vendors')
+    const vendors = await getBase()('Vendors')
       .select({ filterByFormula: '{Vendor Name} = "' + vendorName + '"', maxRecords: 1 })
       .all()
     airtableVendorId = vendors[0]?.getId() ?? null
@@ -53,13 +58,13 @@ export async function POST(req: NextRequest) {
     let airtableBidId: string | null = null
     try {
       if (airtableRfqId && airtableVendorId) {
-        const airtableBids = await base('Bids')
+        const airtableBids = await getBase()('Bids')
           .select({ filterByFormula: 'AND({RFQ} = "' + airtableRfqId + '", {Vendor} = "' + airtableVendorId + '")', maxRecords: 1 })
           .all()
         airtableBidId = airtableBids[0]?.getId() ?? null
       }
       if (!airtableBidId && airtableVendorId) {
-        const airtableBids = await base('Bids')
+        const airtableBids = await getBase()('Bids')
           .select({ filterByFormula: 'SEARCH("' + vendorName + '", {Bid Name})', maxRecords: 1 })
           .all()
         airtableBidId = airtableBids[0]?.getId() ?? null
@@ -69,17 +74,17 @@ export async function POST(req: NextRequest) {
       console.error('[deals] Bid lookup error:', bidLookupErr)
     }
 
-    const dealRecord = await base('Deals').create(dealFields)
+    const dealRecord = await getBase()('Deals').create(dealFields)
     const dealId = dealRecord.getId()
 
     // Update Project status to Awarded
     if (airtableProjectId) {
-      await base('Projects').update(airtableProjectId, { 'fldLdWTW2uHq4fP0m': 'Awarded' } as Airtable.FieldSet).catch(() => {})
+      await getBase()('Projects').update(airtableProjectId, { 'fldLdWTW2uHq4fP0m': 'Awarded' } as Airtable.FieldSet).catch(() => {})
     }
 
     // Update RFQ status to Closed
     if (airtableRfqId) {
-      await base('RFQs').update(airtableRfqId, {
+      await getBase()('RFQs').update(airtableRfqId, {
         'fldU6tXgnTD9QZhZI': 'Closed',
         'fldvHkQ4WoWXgupt8': [dealId],
       } as Airtable.FieldSet).catch(() => {})

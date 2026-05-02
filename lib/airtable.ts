@@ -1,9 +1,10 @@
 import Airtable from 'airtable'
 import type { ProjectSnapshot } from '@/types'
 
-const base = new Airtable({
-  apiKey: process.env.AIRTABLE_API_KEY!,
-}).base(process.env.AIRTABLE_BASE_ID!)
+const getBase = () => {
+  if (!process.env.AIRTABLE_API_KEY) throw new Error('AIRTABLE_API_KEY not set')
+  return new Airtable({ apiKey: process.env.AIRTABLE_API_KEY }).base(process.env.AIRTABLE_BASE_ID!)
+}
 
 const TABLES = {
   PROJECTS:      process.env.AIRTABLE_TABLE_PROJECTS!,
@@ -88,15 +89,15 @@ export async function createProjectRecord(params: {
     if (projectTypeValue.length) fields[P.projectType] = projectTypeValue
 
     // Check if record already exists for this conversation
-    const existing = await base(TABLES.PROJECTS)
+    const existing = await getBase()(TABLES.PROJECTS)
       .select({ filterByFormula: `{Supabase Conversation ID} = "${conversationId}"`, maxRecords: 1 })
       .all()
 
     if (existing.length > 0) {
-      await base(TABLES.PROJECTS).update(existing[0].getId(), fields as Airtable.FieldSet)
+      await getBase()(TABLES.PROJECTS).update(existing[0].getId(), fields as Airtable.FieldSet)
       return existing[0].getId()
     } else {
-      const record = await base(TABLES.PROJECTS).create(fields as Airtable.FieldSet)
+      const record = await getBase()(TABLES.PROJECTS).create(fields as Airtable.FieldSet)
       return record.getId()
     }
   } catch (err) {
@@ -110,7 +111,7 @@ export async function createProjectRecord(params: {
 
 export async function getActiveVendors() {
   try {
-    const records = await base(TABLES.VENDORS)
+    const records = await getBase()(TABLES.VENDORS)
       .select({
         filterByFormula: '{Active} = TRUE()',
         fields: ['Vendor Name', 'Primary Services', 'Contact Name', 'Email', 'Phone', 'Website', 'Capabilities', 'Short Bio', 'Vendor Rating'],
@@ -140,7 +141,7 @@ export async function getActiveVendors() {
 
 export async function getAssignedVendors(conversationId: string) {
   try {
-    const projects = await base(TABLES.PROJECTS)
+    const projects = await getBase()(TABLES.PROJECTS)
       .select({ filterByFormula: `{${P.convId}} = "${conversationId}"` })
       .all()
 
@@ -148,7 +149,7 @@ export async function getAssignedVendors(conversationId: string) {
     const assignedIds = projects[0].get('Assigned Vendors') as string[] | undefined
     if (!assignedIds?.length) return []
 
-    const vendors = await Promise.all(assignedIds.map((id) => base(TABLES.VENDORS).find(id)))
+    const vendors = await Promise.all(assignedIds.map((id) => getBase()(TABLES.VENDORS).find(id)))
     return vendors.map((r) => ({
       id:             r.getId(),
       name:           str(r.get('Vendor Name')),
@@ -171,7 +172,7 @@ export async function getAssignedVendors(conversationId: string) {
 
 export async function getKnowledgeHubByService(serviceType: string) {
   try {
-    const records = await base(TABLES.KNOWLEDGE_HUB)
+    const records = await getBase()(TABLES.KNOWLEDGE_HUB)
       .select({
         // Use field ID directly to avoid name mismatch
         fields: ['Title', 'fldcpc1gPhPPcwU8t', 'fldoPhkOmNghs4B6w'],
@@ -199,7 +200,7 @@ export async function getKnowledgeHubByService(serviceType: string) {
 
 export async function logError(title: string, detail: string, severity: 'Critical' | 'High' | 'Low' = 'High') {
   try {
-    await base(TABLES.ERROR_LOG).create({
+    await getBase()(TABLES.ERROR_LOG).create({
       'Error Title':  title,
       'Error Detail': detail,
       'Severity':     severity,
@@ -209,13 +210,13 @@ export async function logError(title: string, detail: string, severity: 'Critica
   }
 }
 
-export { base, TABLES }
+export { getBase as base, TABLES }
 
 // ─── Look up Account record ID by email ────────────────────────────────────
 
 export async function getAccountIdByEmail(email: string): Promise<string | null> {
   try {
-    const records = await base('Accounts')
+    const records = await getBase()('Accounts')
       .select({ filterByFormula: `{Email} = "${email}"`, maxRecords: 1 })
       .all()
     return records[0]?.getId() ?? null

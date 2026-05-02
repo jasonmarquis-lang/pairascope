@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic'
+
 import { NextRequest, NextResponse } from 'next/server'
 import Airtable from 'airtable'
 import { sendRFQToVendor, sendAdminErrorEmail } from '@/lib/email'
@@ -5,8 +7,11 @@ import { logError, getAccountIdByEmail } from '@/lib/airtable'
 import { supabaseAdmin } from '@/lib/supabase'
 import * as postmark from 'postmark'
 
-const base     = new Airtable({ apiKey: process.env.AIRTABLE_API_KEY! }).base(process.env.AIRTABLE_BASE_ID!)
-const pmClient = new postmark.ServerClient(process.env.POSTMARK_API_KEY ?? 'POSTMARK_API_TEST')
+const getBase = () => {
+  if (!process.env.AIRTABLE_API_KEY) throw new Error('AIRTABLE_API_KEY not set')
+  return new Airtable({ apiKey: process.env.AIRTABLE_API_KEY }).base(process.env.AIRTABLE_BASE_ID!)
+}
+const getPmClient = () => new postmark.ServerClient(process.env.POSTMARK_API_KEY ?? '')
 const FROM     = process.env.POSTMARK_FROM_EMAIL ?? 'create@pairascope.com'
 const ADMIN    = process.env.ADMIN_EMAIL ?? 'admin@pairascope.com'
 
@@ -21,13 +26,13 @@ export async function POST(req: NextRequest) {
     // Find or create Airtable project record
     let airtableProjectId: string | null = null
     try {
-      const existing = await base('Projects')
+      const existing = await getBase()('Projects')
         .select({ filterByFormula: `{Supabase Conversation ID} = "${conversationId}"`, maxRecords: 1 })
         .all()
       airtableProjectId = existing[0]?.getId() ?? null
 
       if (!airtableProjectId) {
-        const proj = await base('Projects').create({
+        const proj = await getBase()('Projects').create({
           'fldN7F3Y8YtbWtSzd': projectName || 'Art Project',
           'fldngbTEeVeb7SFBR': conversationId,
           'fldW3VUda1MLRODw7': today,
@@ -35,7 +40,7 @@ export async function POST(req: NextRequest) {
         } as Airtable.FieldSet)
         airtableProjectId = proj.getId()
       } else {
-        await base('Projects').update(airtableProjectId, {
+        await getBase()('Projects').update(airtableProjectId, {
           'fldLdWTW2uHq4fP0m': 'RFQ Sent',
         } as Airtable.FieldSet)
       }
@@ -46,7 +51,7 @@ export async function POST(req: NextRequest) {
     // Create RFQ record
     let rfqId = `rfq_${Date.now()}`
     try {
-      const rfqRecord = await base('RFQs').create({
+      const rfqRecord = await getBase()('RFQs').create({
         'RFQ Title':      `${projectName || 'Project'} \u2013 RFQ \u2013 ${today}`,
         'Scope Document': scopeDocument,
         'Date Issued':    today,
@@ -62,7 +67,7 @@ export async function POST(req: NextRequest) {
     let vendors: { id: string; name: string; email: string }[] = []
     if (vendorIds?.length > 0) {
       try {
-        const records = await Promise.all(vendorIds.map((id: string) => base('Vendors').find(id)))
+        const records = await Promise.all(vendorIds.map((id: string) => getBase()('Vendors').find(id)))
         vendors = records
           .map((r) => ({ id: r.getId(), name: r.get('Vendor Name') as string, email: r.get('Email') as string }))
           .filter((v) => v.email)
@@ -144,13 +149,13 @@ export async function POST(req: NextRequest) {
         const { getAccountIdByEmail } = await import('@/lib/airtable')
         const accountId = await getAccountIdByEmail(artistEmail)
         if (accountId) {
-          await base('Projects').update(airtableProjectId, { 'fldiIKuIYg3ZUFb4j': [accountId] } as Airtable.FieldSet)
-          await base('RFQs').update(rfqId, { 'fldHzowEvX6pIC0rR': [accountId] } as Airtable.FieldSet)
+          await getBase()('Projects').update(airtableProjectId, { 'fldiIKuIYg3ZUFb4j': [accountId] } as Airtable.FieldSet)
+          await getBase()('RFQs').update(rfqId, { 'fldHzowEvX6pIC0rR': [accountId] } as Airtable.FieldSet)
         }
       }
       // Link Vendors Contacted regardless of account
       if (airtableProjectId && vendorIds?.length > 0) {
-        await base('Projects').update(airtableProjectId, { 'fldIHf9NMXMX6p0MQ': vendorIds } as Airtable.FieldSet)
+        await getBase()('Projects').update(airtableProjectId, { 'fldIHf9NMXMX6p0MQ': vendorIds } as Airtable.FieldSet)
       }
     } catch (linkErr) {
       console.error('[RFQ] Account/vendor linking failed:', linkErr)
@@ -167,7 +172,7 @@ export async function POST(req: NextRequest) {
         if (artistEmail) {
           const vendorList = (vendorNames || vendors.map((v) => v.name))
             .map((n: string) => `\u2022 ${n}`).join('\n')
-          await pmClient.sendEmail({
+          await getPmClient().sendEmail({
             From:     FROM,
             To:       ADMIN,
             Subject:  `[Pairascope] Your RFQ has been sent \u2013 ${projectName || 'Art Project'}`,

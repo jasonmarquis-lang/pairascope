@@ -1,11 +1,16 @@
+export const dynamic = 'force-dynamic'
+
 import { NextRequest, NextResponse } from 'next/server'
 import Airtable from 'airtable'
 
-const base = new Airtable({ apiKey: process.env.AIRTABLE_API_KEY! }).base(process.env.AIRTABLE_BASE_ID!)
+const getBase = () => {
+  if (!process.env.AIRTABLE_API_KEY) throw new Error('AIRTABLE_API_KEY not set')
+  return new Airtable({ apiKey: process.env.AIRTABLE_API_KEY }).base(process.env.AIRTABLE_BASE_ID!)
+}
 
 async function getVendorAirtableId(vendorName: string): Promise<string | null> {
   try {
-    const records = await base('Vendors')
+    const records = await getBase()('Vendors')
       .select({ filterByFormula: `{Vendor Name} = "${vendorName}"`, maxRecords: 1 })
       .all()
     return records[0]?.getId() ?? null
@@ -40,7 +45,7 @@ export async function POST(req: NextRequest) {
       fields['fldcvHhdeLHmkS3PH'] = [projectId]
     }
 
-    await base('Vendor Feedback').create(fields)
+    await getBase()('Vendor Feedback').create(fields)
     return NextResponse.json({ success: true })
   } catch (err) {
     console.error('[/api/vendor-feedback] Error:', JSON.stringify(err))

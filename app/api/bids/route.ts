@@ -1,10 +1,15 @@
+export const dynamic = 'force-dynamic'
+
 import { NextRequest, NextResponse } from 'next/server'
 import Airtable from 'airtable'
 import { supabaseAdmin } from '@/lib/supabase'
 import * as postmark from 'postmark'
 
-const base      = new Airtable({ apiKey: process.env.AIRTABLE_API_KEY! }).base(process.env.AIRTABLE_BASE_ID!)
-const pmClient  = new postmark.ServerClient(process.env.POSTMARK_API_KEY ?? '')
+const getBase = () => {
+  if (!process.env.AIRTABLE_API_KEY) throw new Error('AIRTABLE_API_KEY not set')
+  return new Airtable({ apiKey: process.env.AIRTABLE_API_KEY }).base(process.env.AIRTABLE_BASE_ID!)
+}
+const getPmClient = () => new postmark.ServerClient(process.env.POSTMARK_API_KEY ?? '')
 const FROM      = process.env.POSTMARK_FROM_EMAIL ?? 'create@pairascope.com'
 const ADMIN     = process.env.ADMIN_EMAIL ?? 'admin@pairascope.com'
 
@@ -150,7 +155,7 @@ export async function POST(req: NextRequest) {
       const today = new Date().toISOString().split('T')[0]
       let airtableVendorId: string | null = vendor?.airtable_id ?? null
       if (!airtableVendorId) {
-        const vendors = await base('Vendors').select({ filterByFormula: '{Email} = "' + userEmail + '"', maxRecords: 1 }).all()
+        const vendors = await getBase()('Vendors').select({ filterByFormula: '{Email} = "' + userEmail + '"', maxRecords: 1 }).all()
         airtableVendorId = vendors[0]?.getId() ?? null
       }
       const bidFields: Airtable.FieldSet = {
@@ -169,7 +174,7 @@ export async function POST(req: NextRequest) {
       if (depositPercentage) bidFields[B.depositPct]  = Number(depositPercentage) / 100
       if (airtableVendorId) bidFields[B.vendor]    = [airtableVendorId]
       if (rfqId.startsWith('rec')) bidFields[B.rfq] = [rfqId]
-      const createdBid = await base('Bids').create(bidFields)
+      const createdBid = await getBase()('Bids').create(bidFields)
 
       // If a proposal file was uploaded, update the record with attachment
       if (proposalFile) {
@@ -178,7 +183,7 @@ export async function POST(req: NextRequest) {
           const base64   = Buffer.from(arrayBuf).toString('base64')
           const dataUrl  = 'data:' + proposalFile.type + ';base64,' + base64
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          await base('Bids').update(createdBid.getId(), { [B.proposalFile]: [{ url: dataUrl, filename: proposalFile.name }] } as any)
+          await getBase()('Bids').update(createdBid.getId(), { [B.proposalFile]: [{ url: dataUrl, filename: proposalFile.name }] } as any)
         } catch (fileErr) {
           console.error('[/api/bids] File attach error:', fileErr)
         }
@@ -197,9 +202,9 @@ export async function POST(req: NextRequest) {
     try {
       if ((rfq as Record<string, unknown>)?.conversation_id) {
         const convId = (rfq as Record<string, unknown>).conversation_id as string
-        const projects = await base('Projects').select({ filterByFormula: '{Supabase Conversation ID} = "' + convId + '"', maxRecords: 1 }).all()
+        const projects = await getBase()('Projects').select({ filterByFormula: '{Supabase Conversation ID} = "' + convId + '"', maxRecords: 1 }).all()
         if (projects[0]) {
-          await base('Projects').update(projects[0].getId(), { 'fldLdWTW2uHq4fP0m': 'Proposal In' } as Airtable.FieldSet)
+          await getBase()('Projects').update(projects[0].getId(), { 'fldLdWTW2uHq4fP0m': 'Proposal In' } as Airtable.FieldSet)
         }
       }
     } catch (projErr) {
@@ -211,7 +216,7 @@ export async function POST(req: NextRequest) {
         ? '$' + Number(priceLow).toLocaleString() + ' - $' + Number(priceHigh).toLocaleString()
         : 'Not specified'
       const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.pairascope.com'
-      await pmClient.sendEmail({
+      await getPmClient().sendEmail({
         From:     FROM,
         To:       ADMIN,
         Subject:  '[Pairascope] New estimate received - ' + ((rfq as Record<string, unknown>)?.project_name || 'Your project'),

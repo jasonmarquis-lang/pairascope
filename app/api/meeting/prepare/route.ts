@@ -1,10 +1,14 @@
+export const dynamic = 'force-dynamic'
+
 import { NextRequest, NextResponse } from 'next/server'
 import Airtable from 'airtable'
 import { supabaseAdmin } from '@/lib/supabase'
 import { buildGoogleCalendarUrl } from '@/app/lib/meetingUrl'
 
-const base = new Airtable({ apiKey: process.env.AIRTABLE_API_KEY })
-  .base(process.env.AIRTABLE_BASE_ID!)
+const getBase = () => {
+  if (!process.env.AIRTABLE_API_KEY) throw new Error('AIRTABLE_API_KEY not set')
+  return new Airtable({ apiKey: process.env.AIRTABLE_API_KEY }).base(process.env.AIRTABLE_BASE_ID!)
+}
 
 export async function POST(req: NextRequest) {
   try {
@@ -18,7 +22,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Fetch RFQ
-    const rfqRecord     = await base('RFQs').find(rfqId)
+    const rfqRecord     = await getBase()('RFQs').find(rfqId)
     const rfqTitle      = rfqRecord.get('RFQ Title')      as string || 'Untitled RFQ'
     const scopeDocument = rfqRecord.get('Scope Document') as string || ''
 
@@ -26,7 +30,7 @@ export async function POST(req: NextRequest) {
     const linkedProjects = rfqRecord.get('Linked Project') as string[] | undefined
     let projectName = 'Your Project'
     if (linkedProjects && linkedProjects.length > 0) {
-      const projectRecord = await base('Projects').find(linkedProjects[0])
+      const projectRecord = await getBase()('Projects').find(linkedProjects[0])
       projectName = projectRecord.get('Project Name') as string || 'Your Project'
     }
 
@@ -36,7 +40,7 @@ export async function POST(req: NextRequest) {
     let vendorEmail = ''
 
     if (vendorId) {
-      const vendorRecord = await base('Vendors').find(vendorId)
+      const vendorRecord = await getBase()('Vendors').find(vendorId)
       vendorEmail = vendorRecord.get('Email') as string || ''
     } else {
       // Resolve from bearer token
@@ -46,7 +50,7 @@ export async function POST(req: NextRequest) {
         const { data: { user } } = await supabaseAdmin.auth.getUser(token)
         if (user?.email) {
           // Look up vendor by email in Airtable
-          const vendors = await base('Vendors')
+          const vendors = await getBase()('Vendors')
             .select({ filterByFormula: `{Email} = "${user.email}"`, maxRecords: 1 })
             .all()
           vendorEmail = vendors[0]?.get('Email') as string || user.email

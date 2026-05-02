@@ -1,9 +1,14 @@
+export const dynamic = 'force-dynamic'
+
 import { NextRequest, NextResponse } from 'next/server'
 import Anthropic from '@anthropic-ai/sdk'
 import Airtable from 'airtable'
 
-const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! })
-const base = new Airtable({ apiKey: process.env.AIRTABLE_API_KEY! }).base(process.env.AIRTABLE_BASE_ID!)
+const getAnthropic = () => new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY ?? '' })
+const getBase = () => {
+  if (!process.env.AIRTABLE_API_KEY) throw new Error('AIRTABLE_API_KEY not set')
+  return new Airtable({ apiKey: process.env.AIRTABLE_API_KEY }).base(process.env.AIRTABLE_BASE_ID!)
+}
 
 function str(val: unknown): string {
   if (!val) return ''
@@ -36,8 +41,8 @@ export async function POST(req: NextRequest) {
   try {
     const { snapshot } = await req.json()
 
-    const vendorRecords = await base('Vendors').select({ filterByFormula: '{Active} = TRUE()', fields: ['Vendor Name', 'Primary Services', 'Outsourced Services', 'Contact Name', 'Email', 'Phone', 'Website', 'Capabilities', 'Short Bio', 'Vendor Rating', 'Match Notes', 'City', 'State/Province', 'Country'] }).all()
-    const feedbackRecords = await base('Vendor Feedback').select({ maxRecords: 50, sort: [{ field: 'Date', direction: 'desc' }], fields: ['Feedback Name', 'Vendor', 'Action', 'Reason', 'Project Type'] }).all()
+    const vendorRecords = await getBase()('Vendors').select({ filterByFormula: '{Active} = TRUE()', fields: ['Vendor Name', 'Primary Services', 'Outsourced Services', 'Contact Name', 'Email', 'Phone', 'Website', 'Capabilities', 'Short Bio', 'Vendor Rating', 'Match Notes', 'City', 'State/Province', 'Country'] }).all()
+    const feedbackRecords = await getBase()('Vendor Feedback').select({ maxRecords: 50, sort: [{ field: 'Date', direction: 'desc' }], fields: ['Feedback Name', 'Vendor', 'Action', 'Reason', 'Project Type'] }).all()
 
     const vendors = vendorRecords.map((r) => ({
       id: r.getId(),
@@ -98,7 +103,7 @@ Rules:
 
 [{"vendorIndex": 0, "reasoning": "explanation"}]`
 
-    const response = await anthropic.messages.create({ model: 'claude-haiku-4-5', max_tokens: 1024, messages: [{ role: 'user', content: prompt }] })
+    const response = await getAnthropic().messages.create({ model: 'claude-haiku-4-5', max_tokens: 1024, messages: [{ role: 'user', content: prompt }] })
     const raw = response.content[0].type === 'text' ? response.content[0].text : '[]'
     const cleaned = raw.replace(/```json|```/g, '').trim()
     const matches: { vendorIndex: number; reasoning: string }[] = JSON.parse(cleaned)

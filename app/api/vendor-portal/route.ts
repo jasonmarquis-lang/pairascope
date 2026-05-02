@@ -1,9 +1,14 @@
+export const dynamic = 'force-dynamic'
+
 import { NextRequest, NextResponse } from 'next/server'
 import Airtable from 'airtable'
 import * as postmark from 'postmark'
 import { supabaseAdmin } from '@/lib/supabase'
 
-const base = new Airtable({ apiKey: process.env.AIRTABLE_API_KEY! }).base(process.env.AIRTABLE_BASE_ID!)
+const getBase = () => {
+  if (!process.env.AIRTABLE_API_KEY) throw new Error('AIRTABLE_API_KEY not set')
+  return new Airtable({ apiKey: process.env.AIRTABLE_API_KEY }).base(process.env.AIRTABLE_BASE_ID!)
+}
 
 function getMailer() {
   const pmClient = new postmark.ServerClient(process.env.POSTMARK_API_KEY ?? '')
@@ -24,7 +29,7 @@ export async function POST(req: NextRequest) {
     const { email, vendorId } = await req.json()
     if (!email || !vendorId) return NextResponse.json({ error: 'Email and Vendor ID are required.' }, { status: 400 })
 
-    const records = await base('Vendors').select({
+    const records = await getBase()('Vendors').select({
       filterByFormula: 'AND({Vendor ID} = "' + vendorId.trim() + '", {Email} = "' + email.trim().toLowerCase() + '")',
       maxRecords: 1,
       fields: ['Vendor Name', 'Email', 'Vendor ID'],

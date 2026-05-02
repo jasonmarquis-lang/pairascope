@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic'
+
 import { NextRequest } from 'next/server'
 import Anthropic from '@anthropic-ai/sdk'
 import { v4 as uuidv4 } from 'uuid'
@@ -7,7 +9,7 @@ import { sendAdminErrorEmail } from '@/lib/email'
 import { buildSystemPrompt, buildExtractionPrompt } from '@/lib/prompt'
 import type { Message, ProjectSnapshot } from '@/types'
 
-const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! })
+const getAnthropic = () => new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY ?? '' })
 
 export async function POST(req: NextRequest) {
   const encoder = new TextEncoder()
@@ -101,7 +103,7 @@ export async function POST(req: NextRequest) {
         // ── Stream conversational response ─────────────────────────────────
         let fullReply = ''
 
-        const streamResponse = await anthropic.messages.stream({
+        const streamResponse = await getAnthropic().messages.stream({
           model:      'claude-sonnet-4-5',
           max_tokens: 1024,
           system:     buildSystemPrompt(knowledgeContext),
@@ -130,7 +132,7 @@ export async function POST(req: NextRequest) {
         }
 
         try {
-          const extractionResponse = await anthropic.messages.create({
+          const extractionResponse = await getAnthropic().messages.create({
             model:      'claude-haiku-4-5',
             max_tokens: 512,
             messages: [{ role: 'user', content: buildExtractionPrompt(conversationText) }],
