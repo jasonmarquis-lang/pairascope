@@ -142,6 +142,6 @@ export async function POST(req: NextRequest) {
 
   } catch (err) {
     console.error('[meeting/transcript]', err)
-    return NextResponse.json({ error: 'Failed to process transcript' }, { status: 500 })
+    return NextResponse.json({ error: "Failed to process transcript", detail: err instanceof Error ? err.message : String(err) }, { status: 500 })
   }
 }
