@@ -2,10 +2,6 @@ export const dynamic = 'force-dynamic'
 
 import { NextRequest, NextResponse } from 'next/server'
 
-// Drive push notifications use a direct HTTPS webhook address
-// Google sends a POST to our endpoint when files in Drive change
-// Watches expire after 7 days max — this cron runs every 6 days to renew
-
 async function getAccessToken(): Promise<string> {
   const res = await fetch('https://oauth2.googleapis.com/token', {
     method: 'POST',
@@ -29,14 +25,29 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    const token   = await getAccessToken()
-    const appUrl  = process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.pairascope.com'
+    const token  = await getAccessToken()
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.pairascope.com'
+
+    // Step 1: Get a valid startPageToken for the changes feed
+    const tokenRes = await fetch(
+      'https://www.googleapis.com/drive/v3/changes/startPageToken',
+      { headers: { Authorization: `Bearer ${token}` } }
+    )
+    const tokenData = await tokenRes.json()
+
+    if (!tokenData.startPageToken) {
+      console.error('[renew-drive-watch] Failed to get startPageToken:', JSON.stringify(tokenData))
+      return NextResponse.json({ error: 'Failed to get startPageToken', detail: tokenData }, { status: 500 })
+    }
+
+    const pageToken = tokenData.startPageToken
+    console.log('[renew-drive-watch] Got startPageToken:', pageToken)
+
+    // Step 2: Register the watch using the valid pageToken
     const watchId = `pairascope-watch-${Date.now()}`
 
-    // Register a Drive push notification watch
-    // Google Drive will POST to our webhook when any file changes
-    const res = await fetch(
-      'https://www.googleapis.com/drive/v3/changes/watch?pageToken=1',
+    const watchRes = await fetch(
+      `https://www.googleapis.com/drive/v3/changes/watch?pageToken=${pageToken}`,
       {
         method: 'POST',
         headers: {
@@ -51,21 +62,21 @@ export async function GET(req: NextRequest) {
       }
     )
 
-    const data = await res.json()
+    const watchData = await watchRes.json()
 
-    if (!res.ok) {
-      console.error('[renew-drive-watch] Drive API error:', JSON.stringify(data))
+    if (!watchRes.ok) {
+      console.error('[renew-drive-watch] Drive API error:', JSON.stringify(watchData))
       return NextResponse.json(
-        { error: 'Failed to register Drive watch', detail: data },
+        { error: 'Failed to register Drive watch', detail: watchData },
         { status: 500 }
       )
     }
 
-    console.log('[renew-drive-watch] Watch registered successfully:', data.id, 'expires:', data.expiration)
+    console.log('[renew-drive-watch] Watch registered successfully:', watchData.id, 'expires:', watchData.expiration)
     return NextResponse.json({
       success:    true,
-      watchId:    data.id,
-      expiration: data.expiration,
+      watchId:    watchData.id,
+      expiration: watchData.expiration,
     })
 
   } catch (err) {
