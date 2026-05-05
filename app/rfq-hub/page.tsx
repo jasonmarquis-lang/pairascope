@@ -428,7 +428,7 @@ function RFQRow({ rfq, onContinue }: { rfq: RFQRecord; onContinue: () => void })
                             )}
 
                             {depositUrl && rfq.vendor_ids?.[i] && (
-                              
+                              <a
                                 href={'/api/vendor/w9?vendorId=' + rfq.vendor_ids[i]}
                                 target="_blank"
                                 rel="noopener noreferrer"
