@@ -158,6 +158,28 @@ export default function VendorRFQPage({ params }: { params: { id: string } }) {
             </pre>
           </div>
 
+          {/* Meeting info */}
+          {(rfq.last_meeting_date || rfq.action_items || rfq.what_changed) && (
+            <div style={{ ...sectionStyle, marginBottom: 20 }}>
+              <h2 style={{ fontSize: 14, fontWeight: 500, color: 'var(--ps-white)', margin: '0 0 16px' }}>Last Meeting</h2>
+              {rfq.last_meeting_date && (
+                <p style={{ fontSize: 13, color: 'var(--ps-text)', margin: '0 0 12px' }}>{new Date(rfq.last_meeting_date as string).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</p>
+              )}
+              {rfq.what_changed && (
+                <div style={{ marginBottom: 12 }}>
+                  <p style={{ fontSize: 10, color: 'var(--ps-muted)', textTransform: 'uppercase', letterSpacing: '0.07em', margin: '0 0 4px' }}>What Changed</p>
+                  <p style={{ fontSize: 13, color: 'var(--ps-text)', margin: 0, lineHeight: 1.6 }}>{rfq.what_changed as string}</p>
+                </div>
+              )}
+              {rfq.action_items && (
+                <div>
+                  <p style={{ fontSize: 10, color: 'var(--ps-muted)', textTransform: 'uppercase', letterSpacing: '0.07em', margin: '0 0 4px' }}>Action Items</p>
+                  <p style={{ fontSize: 13, color: 'var(--ps-text)', margin: 0, lineHeight: 1.6, whiteSpace: 'pre-line' }}>{rfq.action_items as string}</p>
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Schedule briefing */}
           <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 16 }}>
             <button
