@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import Nav from '@/components/ui/Nav'
 
@@ -68,6 +68,7 @@ async function getSessionToken(): Promise<string> {
 
 export default function RFQHubPage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const [rfqs,      setRfqs]      = useState<RFQRecord[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error,     setError]     = useState('')
@@ -96,6 +97,14 @@ export default function RFQHubPage() {
           } catch { /* ignore */ }
         }
         setRfqs(rfqList)
+
+        // Handle return from DocuSign
+        const signing = searchParams.get('signing')
+        if (signing === 'complete') {
+          router.replace('/rfq-hub')
+        } else if (signing === 'cancelled') {
+          router.replace('/rfq-hub')
+        }
       } catch {
         setError('Could not load your RFQs.')
       } finally {
@@ -397,7 +406,7 @@ function RFQRow({ rfq, onContinue }: { rfq: RFQRecord; onContinue: () => void })
                               disabled={payingDeposit}
                               style={{ padding: '4px 12px', backgroundColor: 'transparent', color: 'var(--ps-teal)', border: '0.5px solid rgba(29,158,117,0.4)', borderRadius: 6, fontSize: 11, cursor: payingDeposit ? 'default' : 'pointer', fontFamily: 'inherit', fontWeight: 500 }}
                             >
-                              {payingDeposit ? 'Generating...' : 'Pay deposit'}
+                              {payingDeposit ? 'Generating...' : 'Make Deposit'}
                             </button>
                           )}
                           
@@ -424,11 +433,16 @@ function RFQRow({ rfq, onContinue }: { rfq: RFQRecord; onContinue: () => void })
                           </span>
                           {depositUrl && (
                             <a href={depositUrl} target="_blank" rel="noopener noreferrer" style={{ fontSize: 11, color: 'var(--ps-teal)', textDecoration: 'none' }}>
-                              Open payment link →
+                              Make Deposit →
                             </a>
                           )}
                         </div>
                       </div>
+                      {(vendorStatus === 'Awarded' || vendorStatus === 'Selected') && depositUrl && (
+                        <div style={{ padding: '10px 14px', borderTop: '0.5px solid var(--ps-border)', backgroundColor: 'rgba(239,159,39,0.05)' }}>
+                          <p style={{ fontSize: 12, fontWeight: 700, color: '#EF9F27', margin: 0 }}>Your project requires a deposit before commencement</p>
+                        </div>
+                      )}
                       {vendorBid != null && (
                         <div style={{ padding: '10px 14px', borderTop: '0.5px solid var(--ps-border)', backgroundColor: 'rgba(29,158,117,0.03)', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 12 }}>
                           {(vendorBid.price_low || vendorBid.price_high) && (
