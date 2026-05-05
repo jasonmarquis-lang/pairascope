@@ -193,7 +193,7 @@ function RFQRow({ rfq, onContinue }: { rfq: RFQRecord; onContinue: () => void })
     if (nowExpanded && !bidsLoaded) {
       try {
         if (rfq.airtable_project_id) {
-          fetch('/api/scope-versions?projectId=' + rfq.airtable_project_id)
+          fetch('/api/scope-versions?projectId=' + (rfq.airtable_project_id ?? ''))
             .then(r => r.json())
             .then(d => setScopeVersions(d.versions ?? []))
             .catch(() => {})
