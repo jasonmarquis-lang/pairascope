@@ -22,6 +22,13 @@ interface BidRecord {
   proposal_file_name: string | null
 }
 
+interface ScopeVersion {
+  id:             string
+  version_number: number
+  scope_notes:    string
+  what_changed:   string
+}
+
 interface RFQRecord {
   id:                string
   project_name:      string
@@ -171,6 +178,8 @@ function RFQRow({ rfq, onContinue }: { rfq: RFQRecord; onContinue: () => void })
   const [comparison,  setComparison]  = useState<string | null>(null)
   const [loadingComp, setLoadingComp] = useState(false)
   const [bidCount,    setBidCount]    = useState(0)
+  const [scopeVersions, setScopeVersions] = useState<ScopeVersion[]>([])
+  const [hoveredVersion, setHoveredVersion] = useState<string | null>(null)
 
   const style      = STATUS_STYLES[rfq.status] ?? STATUS_STYLES['Draft']
   const date       = new Date(rfq.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
@@ -183,6 +192,12 @@ function RFQRow({ rfq, onContinue }: { rfq: RFQRecord; onContinue: () => void })
     setExpanded(nowExpanded)
     if (nowExpanded && !bidsLoaded) {
       try {
+        if (rfq.airtable_project_id) {
+          fetch('/api/scope-versions?projectId=' + rfq.airtable_project_id)
+            .then(r => r.json())
+            .then(d => setScopeVersions(d.versions ?? []))
+            .catch(() => {})
+        }
         const res = await fetch('/api/rfq-bids?rfqId=' + rfq.id)
         if (res.ok) {
           const data = await res.json()
@@ -413,6 +428,57 @@ function RFQRow({ rfq, onContinue }: { rfq: RFQRecord; onContinue: () => void })
                     </div>
                   )
                 })}
+              </div>
+            </div>
+          )}
+
+          {scopeVersions.length > 0 && (
+            <div style={{ padding: '12px 20px', borderBottom: '0.5px solid var(--ps-border)' }}>
+              <p style={{ fontSize: 11, color: 'var(--ps-muted)', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 10 }}>Scope versions</p>
+              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                {scopeVersions.map((v, i) => (
+                  <div
+                    key={v.id}
+                    style={{ position: 'relative' }}
+                    onMouseEnter={() => setHoveredVersion(v.id)}
+                    onMouseLeave={() => setHoveredVersion(null)}
+                  >
+                    <div style={{
+                      padding: '4px 12px',
+                      borderRadius: 6,
+                      fontSize: 12,
+                      fontWeight: i === 0 ? 600 : 400,
+                      color: i === 0 ? 'var(--ps-teal)' : 'var(--ps-muted)',
+                      backgroundColor: i === 0 ? 'rgba(29,158,117,0.1)' : 'rgba(136,135,128,0.08)',
+                      border: i === 0 ? '0.5px solid rgba(29,158,117,0.4)' : '0.5px solid var(--ps-border)',
+                      cursor: 'default',
+                      userSelect: 'none',
+                    }}>
+                      V{v.version_number}{i === 0 ? ' · Latest' : ''}
+                    </div>
+                    {hoveredVersion === v.id && v.what_changed && (
+                      <div style={{
+                        position: 'absolute',
+                        top: '100%',
+                        left: 0,
+                        marginTop: 6,
+                        backgroundColor: 'var(--ps-surface)',
+                        border: '0.5px solid var(--ps-border)',
+                        borderRadius: 8,
+                        padding: '10px 14px',
+                        fontSize: 12,
+                        color: 'var(--ps-text)',
+                        lineHeight: 1.5,
+                        width: 260,
+                        zIndex: 10,
+                        whiteSpace: 'pre-wrap',
+                      }}>
+                        <p style={{ fontSize: 10, color: 'var(--ps-muted)', textTransform: 'uppercase', letterSpacing: '0.07em', margin: '0 0 6px' }}>What Changed</p>
+                        {v.what_changed}
+                      </div>
+                    )}
+                  </div>
+                ))}
               </div>
             </div>
           )}
