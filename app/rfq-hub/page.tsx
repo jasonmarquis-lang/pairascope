@@ -240,7 +240,7 @@ function RFQRow({ rfq, onContinue }: { rfq: RFQRecord; onContinue: () => void })
     setSigningBid(bid)
     try {
       const token = await getSessionToken()
-      const { data: { user } } = await (await import('@/lib/supabase')).supabase.auth.getUser()
+      const { data: { user } } = await supabase.auth.getUser()
       const res  = await fetch('/api/docusign/sign', {
         method:  'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
