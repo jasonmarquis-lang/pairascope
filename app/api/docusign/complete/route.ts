@@ -2,6 +2,7 @@ export const dynamic = 'force-dynamic'
 
 import { NextRequest, NextResponse } from 'next/server'
 import Airtable from 'airtable'
+import * as postmark from 'postmark'
 
 const getBase = () => {
   if (!process.env.AIRTABLE_API_KEY) throw new Error('AIRTABLE_API_KEY not set')
@@ -86,6 +87,49 @@ export async function GET(req: NextRequest) {
       } catch (dealErr) {
         console.error('[docusign/complete] Deal update failed:', dealErr)
       }
+    }
+
+    // Send signed agreement email to artist and vendor
+    try {
+      const pmClient = new postmark.ServerClient(process.env.POSTMARK_API_KEY ?? '')
+      const FROM     = process.env.POSTMARK_FROM_EMAIL ?? 'create@pairascope.com'
+      const bidRecord  = await base('Bids').find(bidId)
+      const vendorName  = bidRecord.get('Vendor Name') as string ?? 'Vendor'
+      const vendorEmail = bidRecord.get('Vendor Email') as string ?? null
+
+      const { supabaseAdmin } = await import('@/lib/supabase')
+      const rfqIds = bidRecord.get('RFQ') as string[] | undefined
+      let artistEmail: string | null = null
+      if (rfqIds?.length) {
+        const rfqRec = await base('RFQs').find(rfqIds[0])
+        const convId = rfqRec.get('Supabase Conversation ID') as string ?? null
+        if (convId) {
+          const { data: conv } = await supabaseAdmin.from('conversations').select('user_id').eq('id', convId).single()
+          if (conv?.user_id) {
+            const { data: ud } = await supabaseAdmin.auth.admin.getUserById(conv.user_id)
+            artistEmail = ud?.user?.email ?? null
+          }
+        }
+      }
+
+      const emailBody = [
+        'Your project agreement has been signed.',
+        '',
+        `Vendor: ${vendorName}`,
+        '',
+        'The signed agreement is now on file. You can proceed with the deposit to commence the project.',
+        '',
+        `View your dashboard: ${process.env.NEXT_PUBLIC_APP_URL}/rfq-hub`,
+        '',
+        'Pairascope',
+      ].join('\n')
+
+      const recipients = [artistEmail, vendorEmail].filter(Boolean) as string[]
+      await Promise.all(recipients.map((to) =>
+        pmClient.sendEmail({ From: FROM, To: to, Subject: `Agreement Signed — ${vendorName}`, TextBody: emailBody })
+      ))
+    } catch (emailErr) {
+      console.error('[docusign/complete] Email failed:', emailErr)
     }
 
     const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.pairascope.com'
