@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { useRouter, useSearchParams } from 'next/navigation'
+import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import Nav from '@/components/ui/Nav'
 
@@ -68,7 +68,6 @@ async function getSessionToken(): Promise<string> {
 
 export default function RFQHubPage() {
   const router = useRouter()
-  const searchParams = useSearchParams()
   const [rfqs,      setRfqs]      = useState<RFQRecord[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error,     setError]     = useState('')
@@ -99,7 +98,7 @@ export default function RFQHubPage() {
         setRfqs(rfqList)
 
         // Handle return from DocuSign
-        const signing = searchParams.get('signing')
+        const signing = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('signing') : null
         if (signing === 'complete') {
           router.replace('/rfq-hub')
         } else if (signing === 'cancelled') {
