@@ -172,20 +172,6 @@ export default function RFQHubPage() {
           )}
         </div>
       </main>
-
-    <>
-      {/* DocuSign signing popover */}
-      {signingUrl && (
-        <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.7)', zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <div style={{ backgroundColor: 'var(--ps-surface)', borderRadius: 12, border: '0.5px solid var(--ps-border)', width: '90vw', maxWidth: 900, height: '85vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-            <div style={{ padding: '14px 20px', borderBottom: '0.5px solid var(--ps-border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <span style={{ fontSize: 14, fontWeight: 500, color: 'var(--ps-white)' }}>Sign Proposal</span>
-              <button onClick={() => { setSigningUrl(null); setSigningBid(null) }} style={{ background: 'none', border: 'none', color: 'var(--ps-muted)', fontSize: 20, cursor: 'pointer', lineHeight: 1 }}>×</button>
-            </div>
-            <iframe src={signingUrl} style={{ flex: 1, border: 'none', width: '100%' }} allow="camera" />
-          </div>
-        </div>
-      )}
     </>
   )
 }
@@ -339,6 +325,7 @@ function RFQRow({ rfq, onContinue }: { rfq: RFQRecord; onContinue: () => void })
   }
 
   return (
+    <>
     <div style={{ backgroundColor: 'var(--ps-surface)', border: '0.5px solid var(--ps-border)', borderRadius: 10, overflow: 'hidden' }}>
 
       <div onClick={handleExpand} style={{ padding: '16px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer' }}>
@@ -569,6 +556,19 @@ function RFQRow({ rfq, onContinue }: { rfq: RFQRecord; onContinue: () => void })
         </div>
       )}
     </div>
+    {/* DocuSign signing popover */}
+    {signingUrl && (
+      <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.7)', zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div style={{ backgroundColor: 'var(--ps-surface)', borderRadius: 12, border: '0.5px solid var(--ps-border)', width: '90vw', maxWidth: 900, height: '85vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+          <div style={{ padding: '14px 20px', borderBottom: '0.5px solid var(--ps-border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <span style={{ fontSize: 14, fontWeight: 500, color: 'var(--ps-white)' }}>Sign Proposal</span>
+            <button onClick={() => { setSigningUrl(null); setSigningBid(null) }} style={{ background: 'none', border: 'none', color: 'var(--ps-muted)', fontSize: 20, cursor: 'pointer', lineHeight: 1 }}>×</button>
+          </div>
+          <iframe src={signingUrl} style={{ flex: 1, border: 'none', width: '100%' }} allow="camera" />
+        </div>
+      </div>
+    )}
+    </>
   )
 }
 
