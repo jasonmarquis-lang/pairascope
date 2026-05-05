@@ -9,7 +9,7 @@ export default function VendorRFQPage({ params }: { params: { id: string } }) {
   const router   = useRouter()
   const rfqId    = params.id
 
-  const [rfq,        setRfq]        = useState<Record<string, unknown> | null>(null)
+  const [rfq,        setRfq]        = useState<any>(null)
   const [bid,        setBid]        = useState<Record<string, unknown> | null>(null)
   const [isLoading,  setIsLoading]  = useState(true)
   const [isSaving,   setIsSaving]   = useState(false)
@@ -154,7 +154,7 @@ export default function VendorRFQPage({ params }: { params: { id: string } }) {
           <div style={sectionStyle}>
             <h2 style={{ fontSize: 14, fontWeight: 500, color: 'var(--ps-white)', margin: '0 0 16px' }}>Scope document</h2>
             <pre style={{ fontSize: 12, color: 'var(--ps-text)', lineHeight: 1.7, whiteSpace: 'pre-wrap', fontFamily: 'inherit', margin: 0, maxHeight: 300, overflowY: 'auto' }}>
-              {rfq.scope_document as string || 'No scope document available.'}
+              {String(rfq.scope_document ?? 'No scope document available.')}
             </pre>
           </div>
 
