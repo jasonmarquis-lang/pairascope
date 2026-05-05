@@ -417,6 +417,17 @@ function RFQRow({ rfq, onContinue }: { rfq: RFQRecord; onContinue: () => void })
                           <span style={{ fontSize: 11, color: vsColor, backgroundColor: vsBg, padding: '2px 8px', borderRadius: 20, fontWeight: 500 }}>
                             {vendorStatus}
                           </span>
+                          {vendorStatus === 'Awarded' && (
+                            
+                              href={`/api/docusign/document?bidId=${bidId}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              onClick={(e) => e.stopPropagation()}
+                              style={{ fontSize: 11, color: '#1D9E75', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 4 }}
+                            >
+                              ✓ Signed agreement
+                            </a>
+                          )}
                           {depositUrl && (
                             <a href={depositUrl} target="_blank" rel="noopener noreferrer" style={{ fontSize: 11, color: 'var(--ps-teal)', textDecoration: 'none' }}>
                               Make Deposit →
