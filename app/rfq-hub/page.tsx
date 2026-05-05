@@ -433,6 +433,17 @@ function RFQRow({ rfq, onContinue }: { rfq: RFQRecord; onContinue: () => void })
                               Make Deposit →
                             </a>
                           )}
+                          {depositUrl && rfq.vendor_ids?.[i] && (
+                            
+                              href={`/api/vendor/w9?vendorId=${rfq.vendor_ids[i]}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              onClick={(e) => e.stopPropagation()}
+                              style={{ fontSize: 11, color: 'var(--ps-muted)', textDecoration: 'none' }}
+                            >
+                              ↓ W9
+                            </a>
+                          )}
                         </div>
                       </div>
                       {(vendorStatus === 'Awarded' || vendorStatus === 'Selected') && depositUrl && (
