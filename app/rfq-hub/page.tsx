@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useEffect, useState } from 'react'
+import { useEffect, useState, Fragment } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import Nav from '@/components/ui/Nav'
@@ -126,7 +126,7 @@ export default function RFQHubPage() {
   const received = rfqs.reduce((acc, r) => acc + Object.values(r.vendor_statuses ?? {}).filter((s) => s === 'Responded' || s === 'Selected').length, 0)
 
   return (
-    <React.Fragment>
+    <Fragment>
       <Nav />
       <main style={{ paddingTop: 56, minHeight: '100vh' }}>
         <div style={{ maxWidth: 900, margin: '0 auto', padding: '48px 24px' }}>
@@ -170,7 +170,7 @@ export default function RFQHubPage() {
           )}
         </div>
       </main>
-    </React.Fragment>
+    </Fragment>
   )
 }
 
@@ -318,7 +318,7 @@ function RFQRow({ rfq, onContinue }: { rfq: RFQRecord; onContinue: () => void })
   }
 
   return (
-    <React.Fragment>
+    <Fragment>
       <div style={{ backgroundColor: 'var(--ps-surface)', border: '0.5px solid var(--ps-border)', borderRadius: 10, overflow: 'hidden' }}>
 
         <div onClick={handleExpand} style={{ padding: '16px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer' }}>
@@ -566,7 +566,7 @@ function RFQRow({ rfq, onContinue }: { rfq: RFQRecord; onContinue: () => void })
           </div>
         </div>
       )}
-    </React.Fragment>
+    </Fragment>
   )
 }
 
