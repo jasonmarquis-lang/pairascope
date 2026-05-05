@@ -418,7 +418,7 @@ function RFQRow({ rfq, onContinue }: { rfq: RFQRecord; onContinue: () => void })
                             {vendorStatus}
                           </span>
                           {vendorStatus === 'Awarded' && (
-                            
+                            <a
                               href={`/api/docusign/document?bidId=${bidId}`}
                               target="_blank"
                               rel="noopener noreferrer"
