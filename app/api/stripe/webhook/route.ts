@@ -60,8 +60,8 @@ export async function POST(req: NextRequest) {
     const session = eventData["object"] as unknown as Record<string, unknown>;
     const metadata = (session["metadata"] || {}) as Record<string, string>;
     const dealId = metadata["dealId"];
-    const receiptUrl = (session["receipt_url"] as string) ?? null;
-    const paymentIntent = session["payment_intent"] as string ?? null;
+    const receiptUrl = (session["receipt_url"] as string | null) ?? null;
+    const paymentIntent = (session["payment_intent"] as string | null) ?? null;
 
     // Fetch receipt URL from payment intent if not directly on session
     let finalReceiptUrl = receiptUrl;
