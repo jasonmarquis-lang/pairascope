@@ -41,9 +41,10 @@ interface RFQRecord {
   vendor_statuses:   Record<string, string> | null
   conversation_id:   string
   created_at:        string
-  last_meeting_date: string | null
-  action_items:      string | null
-  what_changed:      string | null
+  last_meeting_date:   string | null
+  action_items:        string | null
+  what_changed:        string | null
+  airtable_project_id: string | null
 }
 
 const STATUS_STYLES: Record<string, { color: string; bg: string }> = {
