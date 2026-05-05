@@ -45,6 +45,7 @@ interface RFQRecord {
   action_items:        string | null
   what_changed:        string | null
   airtable_project_id: string | null
+  receipt_url:          string | null
 }
 
 const STATUS_STYLES: Record<string, { color: string; bg: string }> = {
@@ -436,6 +437,11 @@ function RFQRow({ rfq, onContinue }: { rfq: RFQRecord; onContinue: () => void })
                           {depositUrl && rfq.vendor_ids?.[i] && (
                             <a href={'/api/vendor/w9?vendorId=' + rfq.vendor_ids[i]} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} style={{ fontSize: 11, color: 'var(--ps-muted)', textDecoration: 'none' }}>
                               ↓ W9
+                            </a>
+                          )}
+                          {rfq.receipt_url && (
+                            <a href={rfq.receipt_url} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} style={{ fontSize: 11, color: 'var(--ps-muted)', textDecoration: 'none' }}>
+                              ↓ Receipt
                             </a>
                           )}
                         </div>

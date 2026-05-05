@@ -60,11 +60,42 @@ export async function POST(req: NextRequest) {
     const session = eventData["object"] as unknown as Record<string, unknown>;
     const metadata = (session["metadata"] || {}) as Record<string, string>;
     const dealId = metadata["dealId"];
+    const receiptUrl = (session["receipt_url"] as string) ?? null;
+    const paymentIntent = session["payment_intent"] as string ?? null;
+
+    // Fetch receipt URL from payment intent if not directly on session
+    let finalReceiptUrl = receiptUrl;
+    if (!finalReceiptUrl && paymentIntent) {
+      try {
+        const pi = await stripe.paymentIntents.retrieve(paymentIntent, { expand: ['latest_charge'] });
+        const charge = pi.latest_charge as Stripe.Charge | null;
+        finalReceiptUrl = charge?.receipt_url ?? null;
+      } catch (e) {
+        console.error("Failed to fetch receipt:", e);
+      }
+    }
 
     if (dealId) {
       try {
         await updateDealStage(dealId, "Project Secured");
         console.log("Deal " + dealId + " updated to Project Secured");
+
+        // Save receipt URL to Airtable Deals
+        if (finalReceiptUrl) {
+          const dealUrl = "https://api.airtable.com/v0/" + AIRTABLE_BASE_ID + "/" + DEALS_TABLE_ID + "/" + dealId;
+          await fetch(dealUrl, {
+            method: "PATCH",
+            headers: { Authorization: "Bearer " + AIRTABLE_API_KEY, "Content-Type": "application/json" },
+            body: JSON.stringify({ fields: { "Receipt URL": finalReceiptUrl } }),
+          });
+        }
+
+        // Save receipt URL to Supabase rfqs table
+        if (finalReceiptUrl) {
+          const { createClient } = await import('@supabase/supabase-js');
+          const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
+          await supabase.from('rfqs').update({ receipt_url: finalReceiptUrl }).eq('id', dealId);
+        }
       } catch (err: unknown) {
         const message = err instanceof Error ? err.message : "Unknown error";
         console.error("Failed to update deal:", message);
