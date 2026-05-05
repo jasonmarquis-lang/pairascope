@@ -160,7 +160,7 @@ export default function VendorRFQPage({ params }: { params: { id: string } }) {
 
           {/* Meeting info */}
           {(rfq.last_meeting_date || rfq.action_items || rfq.what_changed) && (
-            <div style={{ ...sectionStyle, marginBottom: 20 }}>
+            <div style={{ backgroundColor: 'var(--ps-surface)', border: '0.5px solid var(--ps-border)', borderRadius: 12, padding: 24, marginBottom: 20 }}>
               <h2 style={{ fontSize: 14, fontWeight: 500, color: 'var(--ps-white)', margin: '0 0 16px' }}>Last Meeting</h2>
               {rfq.last_meeting_date && (
                 <p style={{ fontSize: 13, color: 'var(--ps-text)', margin: '0 0 12px' }}>{new Date(rfq.last_meeting_date as string).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</p>
