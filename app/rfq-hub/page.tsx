@@ -164,6 +164,20 @@ export default function RFQHubPage() {
           )}
         </div>
       </main>
+
+    <>
+      {/* DocuSign signing popover */}
+      {signingUrl && (
+        <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.7)', zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div style={{ backgroundColor: 'var(--ps-surface)', borderRadius: 12, border: '0.5px solid var(--ps-border)', width: '90vw', maxWidth: 900, height: '85vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+            <div style={{ padding: '14px 20px', borderBottom: '0.5px solid var(--ps-border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <span style={{ fontSize: 14, fontWeight: 500, color: 'var(--ps-white)' }}>Sign Proposal</span>
+              <button onClick={() => { setSigningUrl(null); setSigningBid(null) }} style={{ background: 'none', border: 'none', color: 'var(--ps-muted)', fontSize: 20, cursor: 'pointer', lineHeight: 1 }}>×</button>
+            </div>
+            <iframe src={signingUrl} style={{ flex: 1, border: 'none', width: '100%' }} allow="camera" />
+          </div>
+        </div>
+      )}
     </>
   )
 }
@@ -181,6 +195,9 @@ function RFQRow({ rfq, onContinue }: { rfq: RFQRecord; onContinue: () => void })
   const [bidCount,    setBidCount]    = useState(0)
   const [scopeVersions, setScopeVersions] = useState<ScopeVersion[]>([])
   const [hoveredVersion, setHoveredVersion] = useState<string | null>(null)
+  const [signingBid,    setSigningBid]    = useState<BidRecord | null>(null)
+  const [signingUrl,    setSigningUrl]    = useState<string | null>(null)
+  const [loadingSigning, setLoadingSigning] = useState(false)
 
   const style      = STATUS_STYLES[rfq.status] ?? STATUS_STYLES['Draft']
   const date       = new Date(rfq.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
@@ -230,6 +247,36 @@ function RFQRow({ rfq, onContinue }: { rfq: RFQRecord; onContinue: () => void })
         .finally(() => setLoadingComp(false))
     }
   }, [bidCount, rfq.id])
+
+  const handleAcceptProposal = async (bid: BidRecord) => {
+    setLoadingSigning(true)
+    setSigningBid(bid)
+    try {
+      const token = await getSessionToken()
+      const { data: { user } } = await (await import('@/lib/supabase')).supabase.auth.getUser()
+      const res = await fetch('/api/docusign/sign', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+        body: JSON.stringify({
+          bidId:       bid.id,
+          signerName:  user?.user_metadata?.full_name ?? user?.email ?? 'Artist',
+          signerEmail: user?.email ?? '',
+        }),
+      })
+      const data = await res.json()
+      if (data.signingUrl) {
+        setSigningUrl(data.signingUrl)
+      } else {
+        console.error('[accept proposal]', data.error)
+        setSigningBid(null)
+      }
+    } catch (err) {
+      console.error('[accept proposal]', err)
+      setSigningBid(null)
+    } finally {
+      setLoadingSigning(false)
+    }
+  }
 
   const handleSelectVendor = async (bid: BidRecord) => {
     setSelecting(bid.id)
@@ -337,11 +384,11 @@ function RFQRow({ rfq, onContinue }: { rfq: RFQRecord; onContinue: () => void })
                         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                           {vendorBid && !dealDone && (vendorStatus === 'Responded' || vendorStatus === 'Selected') && (
                             <button
-                              onClick={(e) => { e.stopPropagation(); handleSelectVendor(vendorBid) }}
-                              disabled={selecting === bidId}
-                              style={{ padding: '4px 12px', backgroundColor: selecting === bidId ? 'rgba(29,158,117,0.4)' : 'var(--ps-teal)', color: 'white', border: 'none', borderRadius: 6, fontSize: 11, cursor: selecting === bidId ? 'default' : 'pointer', fontFamily: 'inherit', fontWeight: 500 }}
+                              onClick={(e) => { e.stopPropagation(); handleAcceptProposal(vendorBid) }}
+                              disabled={loadingSigning && signingBid?.id === bidId}
+                              style={{ padding: '4px 12px', backgroundColor: loadingSigning && signingBid?.id === bidId ? 'rgba(29,158,117,0.4)' : 'var(--ps-teal)', color: 'white', border: 'none', borderRadius: 6, fontSize: 11, cursor: loadingSigning && signingBid?.id === bidId ? 'default' : 'pointer', fontFamily: 'inherit', fontWeight: 500 }}
                             >
-                              {selecting === bidId ? 'Selecting...' : 'Select this vendor'}
+                              {loadingSigning && signingBid?.id === bidId ? 'Loading...' : 'Accept Proposal'}
                             </button>
                           )}
                           {(vendorStatus === 'Selected' || dealDone) && !depositUrl && (
