@@ -106,6 +106,7 @@ export async function POST(req: NextRequest) {
         vendor_names:      (vendorNames || vendors.map((v) => v.name)).join(', '),
         vendor_ids:        vendorIds ?? [],
         response_deadline: responseDeadline || null,
+        airtable_project_id: airtableProjectId ?? null,
         created_at:        new Date().toISOString(),
       })
     } catch (sbErr) {

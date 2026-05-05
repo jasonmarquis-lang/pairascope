@@ -34,6 +34,9 @@ interface RFQRecord {
   vendor_statuses:   Record<string, string> | null
   conversation_id:   string
   created_at:        string
+  last_meeting_date: string | null
+  action_items:      string | null
+  what_changed:      string | null
 }
 
 const STATUS_STYLES: Record<string, { color: string; bg: string }> = {
@@ -383,6 +386,26 @@ function RFQRow({ rfq, onContinue }: { rfq: RFQRecord; onContinue: () => void })
                             <div style={{ gridColumn: '1 / -1' }}>
                               <p style={{ fontSize: 10, color: 'var(--ps-muted)', textTransform: 'uppercase', letterSpacing: '0.07em', margin: '0 0 3px' }}>Assumptions</p>
                               <p style={{ fontSize: 12, color: 'var(--ps-text)', margin: 0, lineHeight: 1.5 }}>{vendorBid.assumptions}</p>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                      {(rfq.last_meeting_date || rfq.action_items || rfq.what_changed) && (
+                        <div style={{ padding: '10px 14px', borderTop: '0.5px solid var(--ps-border)', backgroundColor: 'rgba(136,135,128,0.04)', display: 'flex', flexDirection: 'column', gap: 8 }}>
+                          <p style={{ fontSize: 10, color: 'var(--ps-muted)', textTransform: 'uppercase', letterSpacing: '0.07em', margin: 0 }}>Last Meeting</p>
+                          {rfq.last_meeting_date && (
+                            <p style={{ fontSize: 12, color: 'var(--ps-text)', margin: 0 }}>{new Date(rfq.last_meeting_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</p>
+                          )}
+                          {rfq.what_changed && (
+                            <div>
+                              <p style={{ fontSize: 10, color: 'var(--ps-muted)', textTransform: 'uppercase', letterSpacing: '0.07em', margin: '0 0 3px' }}>What Changed</p>
+                              <p style={{ fontSize: 12, color: 'var(--ps-text)', margin: 0, lineHeight: 1.5 }}>{rfq.what_changed}</p>
+                            </div>
+                          )}
+                          {rfq.action_items && (
+                            <div>
+                              <p style={{ fontSize: 10, color: 'var(--ps-muted)', textTransform: 'uppercase', letterSpacing: '0.07em', margin: '0 0 3px' }}>Action Items</p>
+                              <p style={{ fontSize: 12, color: 'var(--ps-text)', margin: 0, lineHeight: 1.5, whiteSpace: 'pre-line' }}>{rfq.action_items}</p>
                             </div>
                           )}
                         </div>

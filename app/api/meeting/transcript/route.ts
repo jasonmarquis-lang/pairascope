@@ -86,6 +86,21 @@ export async function POST(req: NextRequest) {
       'Scope Version':     newVersion,
     } as Airtable.FieldSet)
 
+    // 4b. Write meeting data to Supabase
+    try {
+      const { supabaseAdmin } = await import('@/lib/supabase')
+      await supabaseAdmin
+        .from('rfqs')
+        .update({
+          last_meeting_date: today,
+          action_items:      actionItemsText,
+          what_changed:      extraction.whatChanged ?? '',
+        })
+        .eq('airtable_project_id', projectId)
+    } catch (sbErr) {
+      console.error('[meeting/transcript] Supabase update failed:', sbErr)
+    }
+
     // 5. Create Scope Version record if scope changed
     if (extraction.scopeChanged) {
       await base('Scope Versions').create({
