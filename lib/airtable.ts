@@ -225,3 +225,24 @@ export async function getAccountIdByEmail(email: string): Promise<string | null>
     return null
   }
 }
+
+// ─── Fetch template content by name from Templates table ───────────────────
+
+export async function getTemplate(templateName: string): Promise<string | null> {
+  try {
+    const records = await getBase()('Templates')
+      .select({
+        filterByFormula: `{Template Name} = "${templateName}"`,
+        maxRecords: 1,
+        fields: ['Content', 'Status'],
+      })
+      .all()
+    if (!records.length) return null
+    const status = records[0].get('Status') as string | undefined
+    if (status === 'Archived') return null
+    return records[0].get('Content') as string ?? null
+  } catch (err) {
+    console.error('[Airtable] getTemplate failed:', err)
+    return null
+  }
+}

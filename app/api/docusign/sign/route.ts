@@ -2,6 +2,8 @@ export const dynamic = 'force-dynamic'
 
 import { NextRequest, NextResponse } from 'next/server'
 import Airtable from 'airtable'
+import { getTemplate } from '@/lib/airtable'
+import { getTemplate } from '@/lib/airtable'
 
 const getBase = () => {
   if (!process.env.AIRTABLE_API_KEY) throw new Error('AIRTABLE_API_KEY not set')
@@ -91,17 +93,14 @@ export async function POST(req: NextRequest) {
         }],
       }
     } else {
-      // No PDF — create a simple signature page
-      const signaturePage = `
-        <html><body style="font-family:Arial,sans-serif;padding:60px;max-width:600px;margin:0 auto;">
-        <h2>Project Agreement</h2>
-        <p>By signing below, both parties agree to the terms and scope of work as outlined in the proposal.</p>
-        <br/><br/><br/>
-        <p>Signature: /sig1/</p>
-        <p>Name: ${signerName}</p>
-        <p>Date: /date1/</p>
-        </body></html>
-      `
+      // No PDF — fetch signing page template from Airtable
+      const templateContent = await getTemplate('Project Signing Page')
+      const filledTemplate = (templateContent ?? '')
+        .replace('{{signer_name}}', signerName)
+        .replace('{{date}}', new Date().toISOString().split('T')[0])
+      const signaturePage = filledTemplate
+        ? `<html><body style="font-family:Arial,sans-serif;padding:60px;max-width:600px;margin:0 auto;">${filledTemplate.replace(/\n/g, '<br/>')}</body></html>`
+        : `<html><body style="font-family:Arial,sans-serif;padding:60px;max-width:600px;margin:0 auto;"><h2>Project Agreement</h2><p>By signing below, both parties agree to the terms and scope of work as outlined in the proposal.</p><br/><br/><p>Signature: /sig1/</p><p>Name: ${signerName}</p><p>Date: /date1/</p></body></html>`
       document = {
         documentBase64: Buffer.from(signaturePage).toString('base64'),
         name:           'Project Agreement',
