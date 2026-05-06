@@ -121,7 +121,7 @@ export async function POST(req: NextRequest) {
     const templateContent = await getTemplate('Meeting Summary')
     const emailBody = templateContent
       ? templateContent
-          .replace('{{project_name}}', projectName)
+          .replace('{{project_name}}', (projectRecord.get('Project Name') as string) ?? 'Your Project')
           .replace('{{meeting_notes}}', extraction.meetingNotes)
           .replace('{{decisions}}', decisionsText || 'None recorded.')
           .replace('{{scope_changes}}', scopeChangesText)
