@@ -4,6 +4,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import Airtable from 'airtable'
 import Anthropic from '@anthropic-ai/sdk'
 import * as postmark from 'postmark'
+import { getTemplate } from '@/lib/airtable'
 import { fetchTranscriptText } from '@/lib/googleDrive'
 
 const getBase = () => {
@@ -117,27 +118,35 @@ export async function POST(req: NextRequest) {
       ? extraction.scopeChanges.map(s => `- ${s}`).join('\n')
       : 'No scope changes identified.'
 
-    const emailBody = [
-      'Meeting Summary',
-      '===============',
-      '',
-      extraction.meetingNotes,
-      '',
-      'DECISIONS',
-      '---------',
-      decisionsText || 'None recorded.',
-      '',
-      'SCOPE CHANGES',
-      '-------------',
-      scopeChangesText,
-      '',
-      'ACTION ITEMS',
-      '------------',
-      actionItemsText || 'None recorded.',
-      '',
-      '---',
-      'Processed automatically by Pairascope.',
-    ].join('\n')
+    const templateContent = await getTemplate('Meeting Summary')
+    const emailBody = templateContent
+      ? templateContent
+          .replace('{{project_name}}', projectName)
+          .replace('{{meeting_notes}}', extraction.meetingNotes)
+          .replace('{{decisions}}', decisionsText || 'None recorded.')
+          .replace('{{scope_changes}}', scopeChangesText)
+          .replace('{{action_items}}', actionItemsText || 'None recorded.')
+      : [
+          'Meeting Summary',
+          '===============',
+          '',
+          extraction.meetingNotes,
+          '',
+          'DECISIONS',
+          '---------',
+          decisionsText || 'None recorded.',
+          '',
+          'SCOPE CHANGES',
+          '-------------',
+          scopeChangesText,
+          '',
+          'ACTION ITEMS',
+          '------------',
+          actionItemsText || 'None recorded.',
+          '',
+          '---',
+          'Processed automatically by Pairascope.',
+        ].join('\n')
 
     const pmClient  = getPmClient()
     const FROM      = process.env.POSTMARK_FROM_EMAIL ?? 'create@pairascope.com'

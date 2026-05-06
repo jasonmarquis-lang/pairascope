@@ -3,6 +3,7 @@ export const dynamic = 'force-dynamic'
 import { NextRequest, NextResponse } from 'next/server'
 import Airtable from 'airtable'
 import * as postmark from 'postmark'
+import { getTemplate } from '@/lib/airtable'
 
 export async function POST(req: NextRequest) {
   try {

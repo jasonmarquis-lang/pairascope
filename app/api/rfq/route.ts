@@ -6,6 +6,7 @@ import { sendRFQToVendor, sendAdminErrorEmail } from '@/lib/email'
 import { logError, getAccountIdByEmail } from '@/lib/airtable'
 import { supabaseAdmin } from '@/lib/supabase'
 import * as postmark from 'postmark'
+import { getTemplate } from '@/lib/airtable'
 
 const getBase = () => {
   if (!process.env.AIRTABLE_API_KEY) throw new Error('AIRTABLE_API_KEY not set')

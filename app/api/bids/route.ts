@@ -2,6 +2,7 @@ export const dynamic = 'force-dynamic'
 
 import { NextRequest, NextResponse } from 'next/server'
 import Airtable from 'airtable'
+import { getTemplate } from '@/lib/airtable'
 import { supabaseAdmin } from '@/lib/supabase'
 import * as postmark from 'postmark'
 

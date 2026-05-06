@@ -3,6 +3,7 @@ export const dynamic = 'force-dynamic'
 import { NextRequest, NextResponse } from 'next/server'
 import Airtable from 'airtable'
 import * as postmark from 'postmark'
+import { getTemplate } from '@/lib/airtable'
 
 const getBase = () => {
   if (!process.env.AIRTABLE_API_KEY) throw new Error('AIRTABLE_API_KEY not set')
@@ -112,21 +113,27 @@ export async function GET(req: NextRequest) {
         }
       }
 
-      const emailBody = [
-        'Your project agreement has been signed.',
-        '',
-        `Vendor: ${vendorName}`,
-        '',
-        'The signed agreement is now on file. You can proceed with the deposit to commence the project.',
-        '',
-        `View your dashboard: ${process.env.NEXT_PUBLIC_APP_URL}/rfq-hub`,
-        '',
-        'Pairascope',
-      ].join('\n')
+      const templateContent = await getTemplate('Agreement Signed')
+      const emailBody = templateContent
+        ? templateContent
+            .replace('{{vendor_name}}', vendorName)
+            .replace('{{app_url}}', process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.pairascope.com')
+        : [
+            'Your project agreement has been signed.',
+            '',
+            `Vendor: ${vendorName}`,
+            '',
+            'The signed agreement is now on file. You can proceed with the deposit to commence the project.',
+            '',
+            `View your dashboard: ${process.env.NEXT_PUBLIC_APP_URL}/rfq-hub`,
+            '',
+            'Pairascope',
+          ].join('\n')
 
+      const subject = `Agreement Signed — ${vendorName}`
       const recipients = [artistEmail, vendorEmail].filter(Boolean) as string[]
       await Promise.all(recipients.map((to) =>
-        pmClient.sendEmail({ From: FROM, To: to, Subject: `Agreement Signed — ${vendorName}`, TextBody: emailBody })
+        pmClient.sendEmail({ From: FROM, To: to, Subject: subject, TextBody: emailBody })
       ))
     } catch (emailErr) {
       console.error('[docusign/complete] Email failed:', emailErr)
