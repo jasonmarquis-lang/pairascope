@@ -29,6 +29,18 @@ interface ScopeVersion {
   what_changed:   string
 }
 
+interface EmailMessage {
+  id:             string
+  from_email:     string
+  from_name:      string
+  body:           string
+  stripped_reply: string | null
+  has_attachment: boolean
+  direction:      string
+  sender_type:    string
+  created_at:     string
+}
+
 interface RFQRecord {
   id:                string
   project_name:      string
@@ -190,6 +202,7 @@ function RFQRow({ rfq, onContinue }: { rfq: RFQRecord; onContinue: () => void })
   const [bidCount,    setBidCount]    = useState(0)
   const [scopeVersions, setScopeVersions] = useState<ScopeVersion[]>([])
   const [hoveredVersion, setHoveredVersion] = useState<string | null>(null)
+  const [messages,       setMessages]       = useState<EmailMessage[]>([])
   const [signingBid,    setSigningBid]    = useState<BidRecord | null>(null)
   const [signingUrl,    setSigningUrl]    = useState<string | null>(null)
   const [loadingSigning, setLoadingSigning] = useState(false)
