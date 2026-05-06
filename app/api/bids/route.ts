@@ -227,6 +227,23 @@ export async function POST(req: NextRequest) {
       console.error('[/api/bids] Notification email error:', emailErr)
     }
 
+    // Auto-trigger comparison refresh if 2+ bids exist
+    try {
+      const { count } = await supabaseAdmin
+        .from('bids')
+        .select('*', { count: 'exact', head: true })
+        .eq('rfq_id', rfqId)
+      if ((count ?? 0) >= 2) {
+        // Clear cached comparison so next load regenerates with latest bids
+        await supabaseAdmin
+          .from('rfqs')
+          .update({ comparison_text: null })
+          .eq('id', rfqId)
+      }
+    } catch (compareErr) {
+      console.error('[/api/bids] Comparison cache clear error:', compareErr)
+    }
+
     return NextResponse.json({ success: true, bid })
   } catch (err) {
     console.error('[/api/bids] POST error:', err)
