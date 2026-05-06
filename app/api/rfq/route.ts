@@ -85,8 +85,10 @@ export async function POST(req: NextRequest) {
           vendorName:    vendor.name,
           projectName:   projectName || 'Art Project',
           projectId,
+          rfqId,
           scopeDocument,
           replyToRelay:  `${projectId.toLowerCase()}@pairascope.com`,
+          appUrl:        process.env.NEXT_PUBLIC_APP_URL,
         })
       )
     )

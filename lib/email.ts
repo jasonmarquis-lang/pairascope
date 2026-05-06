@@ -26,12 +26,32 @@ export async function sendRFQToVendor(params: {
   vendorName:    string
   projectName:   string
   projectId:     string
+  rfqId:         string
   scopeDocument: string
   replyToRelay:  string
+  appUrl?:       string
 }) {
-  const { vendorEmail, vendorName, projectName, projectId, scopeDocument, replyToRelay } = params
+  const { vendorEmail, vendorName, projectName, projectId, rfqId, scopeDocument, replyToRelay, appUrl } = params
 
-  const text = `Hi ${vendorName},
+  // Try to fetch template from Airtable
+  let text: string
+  try {
+    const { getTemplate } = await import('@/lib/airtable')
+    const template = await getTemplate('RFQ Sent to Vendor')
+    if (template) {
+      text = template
+        .replace('{{vendor_name}}', vendorName)
+        .replace('{{project_name}}', projectName)
+        .replace('{{project_id}}', projectId)
+        .replace('{{rfq_id}}', rfqId)
+        .replace('{{scope_document}}', scopeDocument)
+        .replace('{{reply_to}}', replyToRelay)
+        .replace('{{app_url}}', appUrl ?? 'https://www.pairascope.com')
+    } else {
+      throw new Error('Template not found')
+    }
+  } catch {
+    text = `Hi ${vendorName},
 
 You have received a new project inquiry through Pairascope.
 
@@ -43,18 +63,14 @@ SCOPE OF WORK
 ${scopeDocument}
 
 ─────────────
-REQUEST
+Please review the scope and respond via the dashboard:
+${appUrl ?? 'https://www.pairascope.com'}/vendor/rfq/${rfqId}
 
-Please provide:
-- A rough order of magnitude (ROM) price or proposal
-- Estimated timeline
-- Any key assumptions or concerns
-
-Reply directly to this email to respond. Your reply will be securely forwarded to the project owner through the Pairascope platform.
+For quick questions, reply to this email.
 
 Best,
-Pairascope
-create@pairascope.com`
+Pairascope`
+  }
 
   await client.sendEmail({
     From:    FROM,
