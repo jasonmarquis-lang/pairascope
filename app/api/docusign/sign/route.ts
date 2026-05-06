@@ -3,7 +3,6 @@ export const dynamic = 'force-dynamic'
 import { NextRequest, NextResponse } from 'next/server'
 import Airtable from 'airtable'
 import { getTemplate } from '@/lib/airtable'
-import { getTemplate } from '@/lib/airtable'
 
 const getBase = () => {
   if (!process.env.AIRTABLE_API_KEY) throw new Error('AIRTABLE_API_KEY not set')
