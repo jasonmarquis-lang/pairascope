@@ -27,11 +27,11 @@ export default function ScopePanel({ snapshot, conversationId }: ScopePanelProps
 
   // Track if scope has ever been green - once green, stay green
   const hasBeenGreen = snapshot.confidenceLevel === 'green' ||
-    (typeof window !== 'undefined' && sessionStorage.getItem('ps_scope_green_' + conversationId) === '1')
+    (typeof window !== 'undefined' && sessionStorage.getItem('ps_scope_green') === '1')
 
   useEffect(() => {
     if (snapshot.confidenceLevel === 'green') {
-      try { sessionStorage.setItem('ps_scope_green_' + conversationId, '1') } catch { /* ignore */ }
+      try { sessionStorage.setItem('ps_scope_green', '1') } catch { /* ignore */ }
     }
   }, [snapshot.confidenceLevel, conversationId])
 

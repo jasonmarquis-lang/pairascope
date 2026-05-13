@@ -153,7 +153,13 @@ function HomeContent() {
               if (parsed.type === 'text') {
                 setMessages((prev) => prev.map((m) => m.id === assistantId ? { ...m, content: m.content + parsed.text } : m))
               }
-              if (parsed.type === 'snapshot')       setSnapshot(parsed.snapshot)
+              if (parsed.type === 'snapshot') {
+                setSnapshot(prev => {
+                  const incoming = parsed.snapshot
+                  if (prev && prev.confidenceScore > 0 && incoming.confidenceScore === 0) return prev
+                  return incoming
+                })
+              }
               if (parsed.type === 'conversationId') setConversationId(parsed.conversationId)
             } catch { /* skip */ }
           }
@@ -175,7 +181,7 @@ function HomeContent() {
     setShowScope(false)
     setConversationId('')
     setIsLoading(false)
-    try { sessionStorage.removeItem(SESSION_KEY) } catch { /* ignore */ }
+    try { sessionStorage.removeItem(SESSION_KEY); sessionStorage.removeItem('ps_scope_green') } catch { /* ignore */ }
   }
 
   if (!hydrated) return null
@@ -183,7 +189,7 @@ function HomeContent() {
   if (restoring) {
     return (
       <>
-        <Nav />
+        <Nav onLogoClick={handleNewProject} />
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh', color: 'var(--ps-muted)', fontSize: 14 }}>
           Restoring conversation…
         </div>
@@ -197,8 +203,8 @@ function HomeContent() {
       <main style={{ display: 'flex', height: '100vh', paddingTop: 56, overflow: 'hidden' }}>
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
           {!started ? (
-            <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <div style={{ width: '100%', maxWidth: 800, padding: '0 24px', display: 'flex', flexDirection: 'column', gap: 32 }}>
+            <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', alignItems: 'center', paddingBottom: 28 }}>
                 <div style={{ textAlign: 'center' }}>
                   <h1 style={{ fontSize: '2rem', fontWeight: 400, color: 'var(--ps-white)', margin: '0 0 10px', lineHeight: 1.2 }}>
                     Scope. Pair. Create.
@@ -207,8 +213,13 @@ function HomeContent() {
                     Fabrication, shipping, installation, and more.
                   </p>
                 </div>
-                <ChatInput onSend={sendMessage} onNewProject={handleNewProject} isLoading={isLoading} started={started} placeholder={placeholder} />
               </div>
+              <div style={{ display: 'flex', justifyContent: 'center', width: '100%', padding: '0 24px' }}>
+                <div style={{ width: '100%', maxWidth: 800 }}>
+                  <ChatInput onSend={sendMessage} onNewProject={handleNewProject} isLoading={isLoading} started={started} placeholder={placeholder} />
+                </div>
+              </div>
+              <div style={{ flex: 1 }} />
             </div>
           ) : (
             <>

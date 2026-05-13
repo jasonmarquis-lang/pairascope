@@ -13,7 +13,8 @@ const navLinks = [
   { href: '/how-it-works', label: 'How it Works' },
 ]
 
-export default function Nav() {
+interface NavProps { onLogoClick?: () => void }
+export default function Nav({ onLogoClick }: NavProps = {})) {
   const pathname = usePathname()
   const router   = useRouter()
   const [user,        setUser]        = useState<User | null>(null)
@@ -68,7 +69,7 @@ export default function Nav() {
         backdropFilter:  'blur(12px)',
         borderBottom:    '0.5px solid var(--ps-border)',
       }}>
-        <Link href="/" style={{ textDecoration: "none", display: "flex", alignItems: "center" }}><Logo size="sm" /></Link>
+        <Link href="/" onClick={onLogoClick} style={{ textDecoration: "none", display: "flex", alignItems: "center" }}><Logo size="sm" /></Link>
 
         <div style={{ display: 'flex', gap: 4 }}>
           {navLinks.map(({ href, label }) => {
