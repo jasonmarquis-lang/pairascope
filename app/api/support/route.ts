@@ -1,8 +1,8 @@
+export const dynamic = "force-dynamic"
+
 import { NextRequest, NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
 import nodemailer from "nodemailer";
-
-const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
 async function fetchFAQs(): Promise<{ question: string; answer: string }[]> {
   const base = process.env.AIRTABLE_BASE_ID;
@@ -40,6 +40,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Message is required" }, { status: 400 });
     }
 
+    const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
     const faqs = await fetchFAQs();
     const faqBlock = faqs.map((f, i) => `Q${i + 1}: ${f.question}\nA${i + 1}: ${f.answer}`).join("\n\n");
 

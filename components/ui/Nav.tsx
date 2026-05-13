@@ -14,7 +14,7 @@ const navLinks = [
 ]
 
 interface NavProps { onLogoClick?: () => void }
-export default function Nav({ onLogoClick }: NavProps = {})) {
+export default function Nav({ onLogoClick }: NavProps) {
   const pathname = usePathname()
   const router   = useRouter()
   const [user,        setUser]        = useState<User | null>(null)
