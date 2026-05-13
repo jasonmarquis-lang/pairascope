@@ -1,6 +1,6 @@
 import * as postmark from 'postmark'
 
-const client = new postmark.ServerClient(process.env.POSTMARK_API_KEY!)
+const getClient = () => new postmark.ServerClient(process.env.POSTMARK_API_KEY!)
 
 const FROM = process.env.POSTMARK_FROM_EMAIL ?? 'create@pairascope.com'
 
@@ -8,7 +8,7 @@ const FROM = process.env.POSTMARK_FROM_EMAIL ?? 'create@pairascope.com'
 
 export async function sendAdminErrorEmail(subject: string, body: string) {
   try {
-    await client.sendEmail({
+    await getClient().sendEmail({
       From:     FROM,
       To:       process.env.ADMIN_EMAIL!,
       Subject:  `[Pairascope Error] ${subject}`,
@@ -72,7 +72,7 @@ Best,
 Pairascope`
   }
 
-  await client.sendEmail({
+  await getClient().sendEmail({
     From:    FROM,
     To:      vendorEmail,
     ReplyTo: replyToRelay,
@@ -103,7 +103,7 @@ Best,
 Pairascope
 create@pairascope.com`
 
-  await client.sendEmail({
+  await getClient().sendEmail({
     From:    FROM,
     To:      artistEmail,
     Subject: `[Pairascope] Your vendors are ready – ${projectName}`,
@@ -133,7 +133,7 @@ Best,
 Pairascope
 create@pairascope.com`
 
-  await client.sendEmail({
+  await getClient().sendEmail({
     From:    FROM,
     To:      artistEmail,
     Subject: `[Pairascope] New proposal received – ${projectName}`,
@@ -152,7 +152,7 @@ export async function sendRelayEmail(params: {
 }) {
   const { toEmail, fromRelay, replyTo, subject, body } = params
 
-  await client.sendEmail({
+  await getClient().sendEmail({
     From:     fromRelay,
     To:       toEmail,
     ReplyTo:  replyTo,
