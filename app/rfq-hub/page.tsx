@@ -324,12 +324,18 @@ function RFQRow({ rfq, onContinue }: { rfq: RFQRecord; onContinue: () => void })
     <>
     <div style={{ backgroundColor: 'var(--ps-surface)', border: '0.5px solid var(--ps-border)', borderRadius: 10, overflow: 'hidden' }}>
 
-      {/* Header row — no status badge, no vendor count, no date */}
+      {/* Header row */}
       <div onClick={handleExpand} style={{ padding: '16px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer' }}>
-        <span style={{ fontSize: 14, color: 'var(--ps-white)', fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+        <span style={{ fontSize: 14, color: 'var(--ps-white)', fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginRight: 24 }}>
           {rfq.project_name || 'Untitled project'}
         </span>
-        <span style={{ color: 'var(--ps-muted)', fontSize: 12, flexShrink: 0 }}>{expanded ? '▴' : '▾'}</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 24, flexShrink: 0 }}>
+          <MetaItem label="Reference" value={rfq.project_id} />
+          <MetaItem label="Sent date" value={date} />
+          <MetaItem label="Vendors"   value={`${rfq.vendors_contacted} vendor${rfq.vendors_contacted !== 1 ? 's' : ''}`} />
+          <MetaItem label="Status"    value={rfq.status} />
+          <span style={{ color: 'var(--ps-muted)', fontSize: 12 }}>{expanded ? '▴' : '▾'}</span>
+        </div>
       </div>
 
       {expanded && (
@@ -551,14 +557,7 @@ function RFQRow({ rfq, onContinue }: { rfq: RFQRecord; onContinue: () => void })
             </div>
           </div>
 
-          {/* Bottom metadata row */}
-          <div style={{ padding: '12px 40px', borderTop: '0.5px solid var(--ps-border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
-            <div style={{ display: 'flex', gap: 24, flexWrap: 'wrap' }}>
-              <MetaItem label="Reference" value={rfq.project_id} />
-              <MetaItem label="Sent date" value={date} />
-              <MetaItem label="Status"    value={rfq.status} />
-              <MetaItem label="Vendors"   value={`${rfq.vendors_contacted} vendor${rfq.vendors_contacted !== 1 ? 's' : ''}`} />
-            </div>
+          <div style={{ padding: '12px 40px', borderTop: '0.5px solid var(--ps-border)', display: 'flex', justifyContent: 'flex-end' }}>
             <button
               onClick={(e) => { e.stopPropagation(); onContinue() }}
               style={{ padding: '8px 16px', backgroundColor: 'transparent', color: 'var(--ps-teal)', border: '0.5px solid rgba(29,158,117,0.4)', borderRadius: 8, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}
