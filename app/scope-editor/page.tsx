@@ -144,7 +144,7 @@ export default function ScopeEditorPage() {
         <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
 
           {/* Left panel: scope textarea + Recommend Vendors button */}
-          <div style={{ width: 480, flexShrink: 0, display: 'flex', flexDirection: 'column', padding: '32px 24px', borderRight: '0.5px solid var(--ps-border)', overflow: 'hidden' }}>
+          <div style={{ width: '50%', flexShrink: 0, display: 'flex', flexDirection: 'column', padding: '32px 24px', borderRight: '0.5px solid var(--ps-border)', overflow: 'hidden' }}>
             <div style={{ marginBottom: 20 }}>
               <button onClick={() => router.back()} style={{ fontSize: 13, color: 'var(--ps-muted)', background: 'none', border: 'none', cursor: 'pointer', padding: 0, marginBottom: 14, fontFamily: 'inherit' }}>
                 Back
@@ -243,9 +243,6 @@ export default function ScopeEditorPage() {
                                   </span>
                                 )}
                               </div>
-                              {vendor.rating > 0 && (
-                                <span style={{ fontSize: 12, color: '#EF9F27', flexShrink: 0 }}>{'★'.repeat(Math.min(vendor.rating, 5))}</span>
-                              )}
                             </div>
                             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, marginBottom: 8 }}>
                               {vendor.primaryServices.map((s, i) => (
@@ -256,10 +253,10 @@ export default function ScopeEditorPage() {
                               ))}
                             </div>
                             {vendor.reasoning && (
-                              <p style={{ fontSize: 12, color: 'var(--ps-teal)', margin: '0 0 6px', lineHeight: 1.6, fontStyle: 'italic', opacity: 0.9 }}>{vendor.reasoning}</p>
+                              <p style={{ fontSize: 13, color: 'var(--ps-teal)', margin: '0 0 6px', lineHeight: 1.6, fontStyle: 'italic', opacity: 0.9 }}>{vendor.reasoning}</p>
                             )}
                             {vendor.shortBio && (
-                              <p style={{ fontSize: 12, color: 'var(--ps-muted)', margin: 0, lineHeight: 1.6 }}>{vendor.shortBio}</p>
+                              <p style={{ fontSize: 13, color: 'var(--ps-muted)', margin: 0, lineHeight: 1.6 }}>{vendor.shortBio}</p>
                             )}
                           </div>
                         </div>
