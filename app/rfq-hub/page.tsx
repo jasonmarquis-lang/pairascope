@@ -187,10 +187,11 @@ function RFQRow({ rfq, onContinue }: { rfq: RFQRecord; onContinue: () => void })
   const [scopeVersions, setScopeVersions] = useState<ScopeVersion[]>([])
   const [hoveredVersion, setHoveredVersion] = useState<string | null>(null)
   const [messages,       setMessages]       = useState<EmailMessage[]>([])
-  const [signingBid,    setSigningBid]    = useState<BidRecord | null>(null)
-  const [signingUrl,    setSigningUrl]    = useState<string | null>(null)
+  const [signingBid,     setSigningBid]     = useState<BidRecord | null>(null)
+  const [signingUrl,     setSigningUrl]     = useState<string | null>(null)
   const [loadingSigning, setLoadingSigning] = useState(false)
-  const [pdfBid,        setPdfBid]        = useState<BidRecord | null>(null)
+  const [pdfBid,         setPdfBid]         = useState<BidRecord | null>(null)
+  const [showComparison, setShowComparison] = useState(false)
 
   const date       = new Date(rfq.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
   const vendorList = rfq.vendor_names
@@ -228,9 +229,9 @@ function RFQRow({ rfq, onContinue }: { rfq: RFQRecord; onContinue: () => void })
     }
   }
 
-  // Re-run comparison when bid count changes
-  useEffect(() => {
-    if (bidCount >= 2) {
+  const handleCompare = () => {
+    setShowComparison(true)
+    if (!comparison) {
       setLoadingComp(true)
       fetch('/api/bids/compare?rfqId=' + rfq.id)
         .then(r => r.json())
@@ -238,7 +239,7 @@ function RFQRow({ rfq, onContinue }: { rfq: RFQRecord; onContinue: () => void })
         .catch(() => {})
         .finally(() => setLoadingComp(false))
     }
-  }, [bidCount, rfq.id])
+  }
 
   const handleAcceptProposal = async (bid: BidRecord) => {
     setLoadingSigning(true)
@@ -408,9 +409,21 @@ function RFQRow({ rfq, onContinue }: { rfq: RFQRecord; onContinue: () => void })
             <div style={{ flex: 1, padding: '16px 40px' }}>
               <p style={{ fontSize: 11, color: 'var(--ps-muted)', textTransform: 'uppercase', letterSpacing: '0.07em', margin: '0 0 12px' }}>Vendor Bids</p>
 
-              {(loadingComp || comparison) && (
+              {bidCount >= 2 && !showComparison && (
+                <button
+                  onClick={handleCompare}
+                  style={{ marginBottom: 12, padding: '7px 16px', backgroundColor: 'transparent', color: 'var(--ps-teal)', border: '0.5px solid rgba(29,158,117,0.4)', borderRadius: 8, fontSize: 12, cursor: 'pointer', fontFamily: 'inherit', fontWeight: 500 }}
+                >
+                  Compare Bids
+                </button>
+              )}
+
+              {showComparison && (
                 <div style={{ marginBottom: 16, padding: '14px 16px', backgroundColor: 'rgba(29,158,117,0.06)', border: '0.5px solid rgba(29,158,117,0.25)', borderRadius: 10 }}>
-                  <p style={{ fontSize: 11, color: 'var(--ps-teal)', textTransform: 'uppercase', letterSpacing: '0.07em', margin: '0 0 8px', fontWeight: 500 }}>Bid comparison</p>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                    <p style={{ fontSize: 11, color: 'var(--ps-teal)', textTransform: 'uppercase', letterSpacing: '0.07em', margin: 0, fontWeight: 500 }}>Bid comparison</p>
+                    <button onClick={() => setShowComparison(false)} style={{ background: 'none', border: 'none', color: 'var(--ps-muted)', fontSize: 18, cursor: 'pointer', lineHeight: 1, padding: 0 }}>×</button>
+                  </div>
                   {loadingComp && <p style={{ fontSize: 12, color: 'var(--ps-muted)', margin: 0 }}>Analyzing bids...</p>}
                   {comparison && (
                     <div style={{ fontSize: 12, color: 'var(--ps-text)', lineHeight: 1.7, whiteSpace: 'pre-wrap' }}>
@@ -508,38 +521,40 @@ function RFQRow({ rfq, onContinue }: { rfq: RFQRecord; onContinue: () => void })
                           </div>
                         )}
                         {vendorBid != null && (
-                          <div style={{ padding: '10px 14px', borderTop: '0.5px solid var(--ps-border)', backgroundColor: 'rgba(29,158,117,0.03)', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 12 }}>
-                            {(vendorBid.price_low || vendorBid.price_high) && (
-                              <div>
-                                <p style={{ fontSize: 10, color: 'var(--ps-muted)', textTransform: 'uppercase', letterSpacing: '0.07em', margin: '0 0 3px' }}>Price range</p>
-                                <p style={{ fontSize: 13, color: 'var(--ps-white)', margin: 0 }}>
-                                  {vendorBid.price_low ? '$' + Number(vendorBid.price_low).toLocaleString() : ''}{vendorBid.price_low && vendorBid.price_high ? ' - ' : ''}{vendorBid.price_high ? '$' + Number(vendorBid.price_high).toLocaleString() : ''}
-                                </p>
-                              </div>
-                            )}
-                            {vendorBid.timeline && (
-                              <div>
-                                <p style={{ fontSize: 10, color: 'var(--ps-muted)', textTransform: 'uppercase', letterSpacing: '0.07em', margin: '0 0 3px' }}>Timeline</p>
-                                <p style={{ fontSize: 13, color: 'var(--ps-white)', margin: 0 }}>{vendorBid.timeline}</p>
-                              </div>
-                            )}
-                            {vendorBid.assumptions && (
-                              <div style={{ gridColumn: '1 / -1' }}>
-                                <p style={{ fontSize: 10, color: 'var(--ps-muted)', textTransform: 'uppercase', letterSpacing: '0.07em', margin: '0 0 3px' }}>Assumptions</p>
-                                <p style={{ fontSize: 12, color: 'var(--ps-text)', margin: 0, lineHeight: 1.5 }}>{vendorBid.assumptions}</p>
-                              </div>
-                            )}
+                          <div style={{ padding: '10px 14px', borderTop: '0.5px solid var(--ps-border)', backgroundColor: 'rgba(29,158,117,0.03)', display: 'flex', gap: 16, alignItems: 'flex-start' }}>
+                            <div style={{ flex: 1, display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: 12 }}>
+                              {(vendorBid.price_low || vendorBid.price_high) && (
+                                <div>
+                                  <p style={{ fontSize: 10, color: 'var(--ps-muted)', textTransform: 'uppercase', letterSpacing: '0.07em', margin: '0 0 3px' }}>Price range</p>
+                                  <p style={{ fontSize: 13, color: 'var(--ps-white)', margin: 0 }}>
+                                    {vendorBid.price_low ? '$' + Number(vendorBid.price_low).toLocaleString() : ''}{vendorBid.price_low && vendorBid.price_high ? ' - ' : ''}{vendorBid.price_high ? '$' + Number(vendorBid.price_high).toLocaleString() : ''}
+                                  </p>
+                                </div>
+                              )}
+                              {vendorBid.timeline && (
+                                <div>
+                                  <p style={{ fontSize: 10, color: 'var(--ps-muted)', textTransform: 'uppercase', letterSpacing: '0.07em', margin: '0 0 3px' }}>Timeline</p>
+                                  <p style={{ fontSize: 13, color: 'var(--ps-white)', margin: 0 }}>{vendorBid.timeline}</p>
+                                </div>
+                              )}
+                              {vendorBid.assumptions && (
+                                <div style={{ gridColumn: '1 / -1' }}>
+                                  <p style={{ fontSize: 10, color: 'var(--ps-muted)', textTransform: 'uppercase', letterSpacing: '0.07em', margin: '0 0 3px' }}>Assumptions</p>
+                                  <p style={{ fontSize: 12, color: 'var(--ps-text)', margin: 0, lineHeight: 1.5 }}>{vendorBid.assumptions}</p>
+                                </div>
+                              )}
+                            </div>
                             {vendorBid.proposal_file_name && (
-                              <div style={{ gridColumn: '1 / -1' }}>
-                                <p style={{ fontSize: 10, color: 'var(--ps-muted)', textTransform: 'uppercase', letterSpacing: '0.07em', margin: '0 0 6px' }}>Proposal</p>
-                                <button
-                                  onClick={(e) => { e.stopPropagation(); setPdfBid(vendorBid) }}
-                                  style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '7px 12px', backgroundColor: 'var(--ps-surface)', border: '0.5px solid var(--ps-border)', borderRadius: 8, cursor: 'pointer', fontFamily: 'inherit' }}
-                                >
-                                  <span style={{ fontSize: 16, lineHeight: 1 }}>📄</span>
-                                  <span style={{ fontSize: 12, color: 'var(--ps-text)' }}>{vendorBid.proposal_file_name}</span>
-                                </button>
-                              </div>
+                              <button
+                                onClick={(e) => { e.stopPropagation(); setPdfBid(vendorBid) }}
+                                style={{ flexShrink: 0, width: 108, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 5, padding: '10px 8px', backgroundColor: 'var(--ps-bg)', border: '0.5px solid var(--ps-border)', borderRadius: 8, cursor: 'pointer', fontFamily: 'inherit' }}
+                              >
+                                <span style={{ fontSize: 24, lineHeight: 1 }}>📄</span>
+                                <span style={{ fontSize: 10, color: 'var(--ps-text)', textAlign: 'center', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 88 }}>
+                                  {vendorBid.proposal_file_name}
+                                </span>
+                                <span style={{ fontSize: 10, color: 'var(--ps-teal)', fontWeight: 500 }}>View proposal</span>
+                              </button>
                             )}
                           </div>
                         )}

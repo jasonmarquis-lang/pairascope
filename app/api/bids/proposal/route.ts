@@ -20,17 +20,8 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'No proposal file found' }, { status: 404 })
     }
 
-    const att     = attachments[0]
-    const fileRes = await fetch(att.url)
-    if (!fileRes.ok) return NextResponse.json({ error: 'Failed to fetch file' }, { status: 502 })
-
-    const buf = await fileRes.arrayBuffer()
-    return new NextResponse(buf, {
-      headers: {
-        'Content-Type':        fileRes.headers.get('Content-Type') || 'application/octet-stream',
-        'Content-Disposition': `inline; filename="${att.filename}"`,
-      },
-    })
+    const att = attachments[0]
+    return NextResponse.redirect(att.url, 302)
   } catch (err) {
     console.error('[/api/bids/proposal] Error:', err)
     return NextResponse.json({ error: 'Failed to fetch proposal' }, { status: 500 })
