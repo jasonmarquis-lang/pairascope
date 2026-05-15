@@ -127,26 +127,26 @@ export default function ScopePanel({ snapshot, conversationId }: ScopePanelProps
 
         <div style={{ flex: 1, overflowY: 'auto', padding: '16px 20px' }}>
           <SnapshotFields snapshot={snapshot} />
+
+          {hasBeenGreen && (
+            <div style={{ marginTop: 16, display: 'flex', flexDirection: 'column', gap: 8 }}>
+              <button
+                onClick={handleGenerateRFQ}
+                style={{ width: '100%', padding: '12px 20px', backgroundColor: 'var(--ps-teal)', color: 'white', border: 'none', borderRadius: 10, fontSize: 14, fontWeight: 500, cursor: 'pointer', fontFamily: 'inherit', transition: 'opacity 0.15s ease' }}
+                onMouseEnter={(e) => e.currentTarget.style.opacity = '0.85'}
+                onMouseLeave={(e) => e.currentTarget.style.opacity = '1'}
+              >
+                Generate RFQ →
+              </button>
+
+              {!user && (
+                <p style={{ fontSize: 11, color: 'var(--ps-muted)', textAlign: 'center', margin: 0 }}>
+                  Sign in to generate an RFQ and save your project.
+                </p>
+              )}
+            </div>
+          )}
         </div>
-
-        {hasBeenGreen && (
-          <div style={{ padding: '16px 20px', borderTop: '0.5px solid var(--ps-border)', flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 8 }}>
-            <button
-              onClick={handleGenerateRFQ}
-              style={{ width: '100%', padding: '12px 20px', backgroundColor: 'var(--ps-teal)', color: 'white', border: 'none', borderRadius: 10, fontSize: 14, fontWeight: 500, cursor: 'pointer', fontFamily: 'inherit', transition: 'opacity 0.15s ease' }}
-              onMouseEnter={(e) => e.currentTarget.style.opacity = '0.85'}
-              onMouseLeave={(e) => e.currentTarget.style.opacity = '1'}
-            >
-              Generate RFQ →
-            </button>
-
-            {!user && (
-              <p style={{ fontSize: 11, color: 'var(--ps-muted)', textAlign: 'center', margin: 0 }}>
-                Sign in to generate an RFQ and save your project.
-              </p>
-            )}
-          </div>
-        )}
       </div>
 
       <AuthModal
