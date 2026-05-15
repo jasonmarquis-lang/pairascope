@@ -154,7 +154,7 @@ export default function ScopeEditorPage() {
             {/* Scope Editor + project name on same line, same style, project name right-aligned */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 20 }}>
               <h1 style={{ fontSize: '1.5rem', fontWeight: 400, color: 'var(--ps-white)', margin: 0 }}>Scope Editor</h1>
-              <span style={{ fontSize: '1.5rem', fontWeight: 400, color: 'var(--ps-white)' }}>{projectName}</span>
+              <span style={{ fontSize: '1.5rem', fontWeight: 400, color: 'var(--ps-white)' }}>{'“'}{projectName}{'”'}</span>
             </div>
 
             {/* Edit hint — no "Scope document" label */}
@@ -181,6 +181,17 @@ export default function ScopeEditorPage() {
                 }}
               />
             </div>
+
+            {error && !vendorsLoaded && <p style={{ fontSize: 12, color: '#E24B4A', margin: '12px 0 0' }}>{error}</p>}
+            <div style={{ paddingTop: 16, display: 'flex', justifyContent: 'center' }}>
+              <button
+                onClick={handleRecommendVendors}
+                disabled={loadingVendors || !scope.trim()}
+                style={{ width: '50%', padding: '14px 0', backgroundColor: loadingVendors ? 'rgba(29,158,117,0.4)' : 'var(--ps-teal)', color: 'white', border: 'none', borderRadius: 10, fontSize: 14, fontWeight: 500, cursor: loadingVendors || !scope.trim() ? 'default' : 'pointer', fontFamily: 'inherit' }}
+              >
+                {loadingVendors ? 'Matching...' : vendorsLoaded ? 'Re-run Matching →' : 'Recommend Vendors →'}
+              </button>
+            </div>
           </div>
 
           {/* Right panel: vendor cards */}
@@ -198,6 +209,7 @@ export default function ScopeEditorPage() {
             )}
 
             {vendorsLoaded && (
+              <>
               <div style={{ flex: 1, overflowY: 'auto', padding: '32px 24px 16px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
                   <p style={{ fontSize: 11, color: 'var(--ps-muted)', textTransform: 'uppercase', letterSpacing: '0.07em', margin: 0 }}>Recommended vendors</p>
@@ -238,7 +250,7 @@ export default function ScopeEditorPage() {
                               <span key={i} style={{ fontSize: 11, color: 'var(--ps-teal)', backgroundColor: 'rgba(29,158,117,0.1)', padding: '2px 8px', borderRadius: 20 }}>{s}</span>
                             ))}
                             {vendor.secondaryServices.map((s, i) => (
-                              <span key={i} style={{ fontSize: 11, color: 'var(--ps-muted)', backgroundColor: 'var(--ps-bg)', border: '0.5px solid var(--ps-border)', padding: '2px 8px', borderRadius: 20 }}>{s}</span>
+                              <span key={i} style={{ fontSize: 11, color: 'var(--ps-muted)', backgroundColor: 'rgba(136,135,128,0.12)', padding: '2px 8px', borderRadius: 20 }}>{s}</span>
                             ))}
                           </div>
                           {(vendor.reasoning || vendor.shortBio) && (
@@ -257,39 +269,21 @@ export default function ScopeEditorPage() {
                   })}
                 </div>
               </div>
+              <div style={{ padding: '16px 24px', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                {error && vendorsLoaded && <p style={{ fontSize: 12, color: '#E24B4A', margin: '0 0 8px', alignSelf: 'stretch' }}>{error}</p>}
+                <button
+                  onClick={handleSend}
+                  disabled={sending || selectedVendors.size === 0}
+                  style={{ width: '50%', padding: '14px 0', backgroundColor: sending || selectedVendors.size === 0 ? 'rgba(29,158,117,0.4)' : 'var(--ps-teal)', color: 'white', border: 'none', borderRadius: 10, fontSize: 14, fontWeight: 500, cursor: sending || selectedVendors.size === 0 ? 'default' : 'pointer', fontFamily: 'inherit' }}
+                >
+                  {sending ? 'Sending...' : 'Send RFQ to ' + selectedVendors.size + ' vendor' + (selectedVendors.size !== 1 ? 's' : '') + ' →'}
+                </button>
+              </div>
+              </>
             )}
           </div>
 
         </div>
-
-        {/* Shared bottom bar: Re-run Matching (left, 50% panel) | Send RFQ (right panel) */}
-        <div style={{ display: 'flex', borderTop: '0.5px solid var(--ps-border)', flexShrink: 0 }}>
-          {/* Left side — matches left panel width */}
-          <div style={{ width: '50%', padding: '16px 24px', borderRight: '0.5px solid var(--ps-border)' }}>
-            {error && !vendorsLoaded && <p style={{ fontSize: 12, color: '#E24B4A', margin: '0 0 8px' }}>{error}</p>}
-            <button
-              onClick={handleRecommendVendors}
-              disabled={loadingVendors || !scope.trim()}
-              style={{ width: '50%', padding: '14px 0', backgroundColor: loadingVendors ? 'rgba(29,158,117,0.4)' : 'var(--ps-teal)', color: 'white', border: 'none', borderRadius: 10, fontSize: 14, fontWeight: 500, cursor: loadingVendors || !scope.trim() ? 'default' : 'pointer', fontFamily: 'inherit' }}
-            >
-              {loadingVendors ? 'Matching...' : vendorsLoaded ? 'Re-run Matching →' : 'Recommend Vendors →'}
-            </button>
-          </div>
-          {/* Right side — matches right panel width */}
-          <div style={{ flex: 1, padding: '16px 24px' }}>
-            {error && vendorsLoaded && <p style={{ fontSize: 12, color: '#E24B4A', margin: '0 0 8px' }}>{error}</p>}
-            {vendorsLoaded && (
-              <button
-                onClick={handleSend}
-                disabled={sending || selectedVendors.size === 0}
-                style={{ width: '100%', padding: '14px 0', backgroundColor: sending || selectedVendors.size === 0 ? 'rgba(29,158,117,0.4)' : 'var(--ps-teal)', color: 'white', border: 'none', borderRadius: 10, fontSize: 14, fontWeight: 500, cursor: sending || selectedVendors.size === 0 ? 'default' : 'pointer', fontFamily: 'inherit' }}
-              >
-                {sending ? 'Sending...' : 'Send RFQ to ' + selectedVendors.size + ' vendor' + (selectedVendors.size !== 1 ? 's' : '') + ' →'}
-              </button>
-            )}
-          </div>
-        </div>
-
       </main>
     </>
   )
