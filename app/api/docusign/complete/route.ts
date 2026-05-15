@@ -4,6 +4,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import Airtable from 'airtable'
 import * as postmark from 'postmark'
 import { getTemplate } from '@/lib/airtable'
+import { supabaseAdmin } from '@/lib/supabase'
 
 const getBase = () => {
   if (!process.env.AIRTABLE_API_KEY) throw new Error('AIRTABLE_API_KEY not set')
@@ -37,87 +38,126 @@ async function getDocuSignToken(): Promise<string> {
   return data.access_token
 }
 
+function postMessageResponse(type: string, bidId: string, appUrl: string): NextResponse {
+  const fallback = type === 'docusign-complete'
+    ? `${appUrl}/rfq-hub?signing=complete&bidId=${encodeURIComponent(bidId)}`
+    : `${appUrl}/rfq-hub?signing=cancelled`
+  const msg = JSON.stringify({ type, bidId })
+  const fb  = JSON.stringify(fallback)
+  const html = `<!DOCTYPE html><html><body><script>(function(){var m=${msg},f=${fb};try{if(window!==window.parent){window.parent.postMessage(m,'*');}else{window.location.replace(f);}}catch(e){window.location.replace(f);}})();</script></body></html>`
+  return new NextResponse(html, { headers: { 'Content-Type': 'text/html; charset=utf-8' } })
+}
+
 export async function GET(req: NextRequest) {
+  const { searchParams } = new URL(req.url)
+  const envelopeId = searchParams.get('envelopeId')
+  const bidId      = searchParams.get('bidId') ?? ''
+  const event      = searchParams.get('event')
+  const appUrl     = process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.pairascope.com'
+
+  if (!envelopeId || !bidId) {
+    return NextResponse.redirect(appUrl + '/rfq-hub')
+  }
+
+  if (event === 'decline' || event === 'cancel') {
+    return postMessageResponse('docusign-cancelled', bidId, appUrl)
+  }
+
   try {
-    const { searchParams } = new URL(req.url)
-    const envelopeId = searchParams.get('envelopeId')
-    const bidId      = searchParams.get('bidId')
-    const event      = searchParams.get('event')
+    const token   = await getDocuSignToken()
+    const baseUrl = `https://demo.docusign.net/restapi/v2.1/accounts/${process.env.DOCUSIGN_ACCOUNT_ID!}`
+    const base    = getBase()
 
-    if (!envelopeId || !bidId) {
-      return NextResponse.redirect(process.env.NEXT_PUBLIC_APP_URL + '/rfq-hub')
-    }
-
-    // If user declined or cancelled, just redirect back
-    if (event === 'decline' || event === 'cancel') {
-      return NextResponse.redirect(process.env.NEXT_PUBLIC_APP_URL + '/rfq-hub?signing=cancelled')
-    }
-
-    const token     = await getDocuSignToken()
-    const accountId = process.env.DOCUSIGN_ACCOUNT_ID!
-    const baseUrl   = `https://demo.docusign.net/restapi/v2.1/accounts/${accountId}`
-
-    // Fetch signed document from DocuSign
+    // Fetch signed PDF from DocuSign
     const docRes = await fetch(`${baseUrl}/envelopes/${envelopeId}/documents/1`, {
       headers: { Authorization: `Bearer ${token}` },
     })
-
     let signedPdfBase64: string | null = null
     if (docRes.ok) {
       const buf = await docRes.arrayBuffer()
       signedPdfBase64 = Buffer.from(buf).toString('base64')
     }
 
-    // Update Bid status to Awarded in Airtable
-    const base = getBase()
+    // Fetch bid record once; reuse for all downstream logic
+    const bidRecord   = await base('Bids').find(bidId)
+    const vendorName  = bidRecord.get('Vendor Name') as string ?? 'Vendor'
+    const vendorEmail = bidRecord.get('Vendor Email') as string ?? null
+    const dealIds     = bidRecord.get('Deal') as string[] | undefined
+    const rfqIds      = bidRecord.get('RFQ') as string[] | undefined
+
+    // Update Airtable Bid status
     await base('Bids').update(bidId, { 'Status': 'Awarded' } as Airtable.FieldSet)
 
-    // Save signed agreement to Deals table if we have the PDF
-    if (signedPdfBase64) {
+    // Save signed agreement to Deals table
+    if (signedPdfBase64 && dealIds?.length) {
       try {
-        const bids = await base('Bids').find(bidId)
-        const dealIds = bids.get('Deal') as string[] | undefined
-        if (dealIds?.length) {
-          await base('Deals').update(dealIds[0], {
-            'Signed Agreement': [{
-              url:      `data:application/pdf;base64,${signedPdfBase64}`,
-              filename: 'signed-agreement.pdf',
-            }],
-          } as any)
-        }
+        await base('Deals').update(dealIds[0], {
+          'Signed Agreement': [{
+            url:      `data:application/pdf;base64,${signedPdfBase64}`,
+            filename: 'signed-agreement.pdf',
+          }],
+        } as any)
       } catch (dealErr) {
         console.error('[docusign/complete] Deal update failed:', dealErr)
       }
     }
 
+    // Resolve Supabase conversation ID from Airtable RFQ link (used for both Supabase update + artist email)
+    let convId: string | null = null
+    if (rfqIds?.length) {
+      try {
+        const rfqRec = await base('RFQs').find(rfqIds[0])
+        convId = rfqRec.get('Supabase Conversation ID') as string ?? null
+      } catch (rfqErr) {
+        console.error('[docusign/complete] RFQ fetch failed:', rfqErr)
+      }
+    }
+
+    // Update Supabase vendor_statuses → 'Awarded' and RFQ status → 'Closed'
+    if (convId) {
+      try {
+        const { data: rfqData } = await supabaseAdmin
+          .from('rfqs')
+          .select('id, vendor_statuses')
+          .eq('conversation_id', convId)
+          .single()
+        if (rfqData) {
+          const currentStatuses = (rfqData.vendor_statuses as Record<string, string>) ?? {}
+          await supabaseAdmin
+            .from('rfqs')
+            .update({
+              vendor_statuses: { ...currentStatuses, [vendorName]: 'Awarded' },
+              status: 'Closed',
+            })
+            .eq('id', rfqData.id)
+        }
+      } catch (sbErr) {
+        console.error('[docusign/complete] Supabase update failed:', sbErr)
+      }
+    }
+
     // Send signed agreement email to artist and vendor
     try {
-      const pmClient = new postmark.ServerClient(process.env.POSTMARK_API_KEY ?? '')
-      const FROM     = process.env.POSTMARK_FROM_EMAIL ?? 'create@pairascope.com'
-      const bidRecord  = await base('Bids').find(bidId)
-      const vendorName  = bidRecord.get('Vendor Name') as string ?? 'Vendor'
-      const vendorEmail = bidRecord.get('Vendor Email') as string ?? null
-
-      const { supabaseAdmin } = await import('@/lib/supabase')
-      const rfqIds = bidRecord.get('RFQ') as string[] | undefined
       let artistEmail: string | null = null
-      if (rfqIds?.length) {
-        const rfqRec = await base('RFQs').find(rfqIds[0])
-        const convId = rfqRec.get('Supabase Conversation ID') as string ?? null
-        if (convId) {
-          const { data: conv } = await supabaseAdmin.from('conversations').select('user_id').eq('id', convId).single()
-          if (conv?.user_id) {
-            const { data: ud } = await supabaseAdmin.auth.admin.getUserById(conv.user_id)
-            artistEmail = ud?.user?.email ?? null
-          }
+      if (convId) {
+        const { data: conv } = await supabaseAdmin
+          .from('conversations')
+          .select('user_id')
+          .eq('id', convId)
+          .single()
+        if (conv?.user_id) {
+          const { data: ud } = await supabaseAdmin.auth.admin.getUserById(conv.user_id)
+          artistEmail = ud?.user?.email ?? null
         }
       }
 
+      const pmClient = new postmark.ServerClient(process.env.POSTMARK_API_KEY ?? '')
+      const FROM     = process.env.POSTMARK_FROM_EMAIL ?? 'create@pairascope.com'
       const templateContent = await getTemplate('Agreement Signed')
       const emailBody = templateContent
         ? templateContent
             .replace('{{vendor_name}}', vendorName)
-            .replace('{{app_url}}', process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.pairascope.com')
+            .replace('{{app_url}}', appUrl)
         : [
             'Your project agreement has been signed.',
             '',
@@ -125,12 +165,12 @@ export async function GET(req: NextRequest) {
             '',
             'The signed agreement is now on file. You can proceed with the deposit to commence the project.',
             '',
-            `View your dashboard: ${process.env.NEXT_PUBLIC_APP_URL}/rfq-hub`,
+            `View your dashboard: ${appUrl}/rfq-hub`,
             '',
             'Pairascope',
           ].join('\n')
 
-      const subject = `Agreement Signed — ${vendorName}`
+      const subject    = `Agreement Signed — ${vendorName}`
       const recipients = [artistEmail, vendorEmail].filter(Boolean) as string[]
       await Promise.all(recipients.map((to) =>
         pmClient.sendEmail({ From: FROM, To: to, Subject: subject, TextBody: emailBody })
@@ -139,11 +179,9 @@ export async function GET(req: NextRequest) {
       console.error('[docusign/complete] Email failed:', emailErr)
     }
 
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.pairascope.com'
-    return NextResponse.redirect(`${appUrl}/rfq-hub?signing=complete&bidId=${bidId}`)
+    return postMessageResponse('docusign-complete', bidId, appUrl)
   } catch (err) {
     console.error('[docusign/complete]', err)
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.pairascope.com'
     return NextResponse.redirect(`${appUrl}/rfq-hub?signing=error`)
   }
 }

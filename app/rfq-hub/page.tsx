@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import Nav from '@/components/ui/Nav'
@@ -192,6 +192,40 @@ function RFQRow({ rfq, onContinue }: { rfq: RFQRecord; onContinue: () => void })
   const [loadingSigning, setLoadingSigning] = useState(false)
   const [pdfBid,         setPdfBid]         = useState<BidRecord | null>(null)
   const [showComparison, setShowComparison] = useState(false)
+  const [localVendorStatuses, setLocalVendorStatuses] = useState<Record<string, string>>(rfq.vendor_statuses ?? {})
+  const signingBidRef = useRef<BidRecord | null>(null)
+
+  useEffect(() => {
+    const handler = (event: MessageEvent) => {
+      const msg = event.data
+      if (typeof msg !== 'object' || !msg) return
+      if (msg.type === 'docusign-complete') {
+        const signedBid = signingBidRef.current
+        setSigningUrl(null)
+        setSigningBid(null)
+        signingBidRef.current = null
+        setDealDone(true)
+        if (signedBid) {
+          setLocalVendorStatuses(prev => ({ ...prev, [signedBid.vendor_name]: 'Awarded' }))
+        }
+        fetch('/api/rfq-bids?rfqId=' + rfq.id)
+          .then(r => r.json())
+          .then(d => {
+            const allBids = d.bids ?? []
+            const map: Record<string, BidRecord> = {}
+            for (const b of allBids) map[b.vendor_name.trim().toLowerCase()] = b
+            setBidMap(map)
+          })
+          .catch(() => {})
+      } else if (msg.type === 'docusign-cancelled') {
+        setSigningUrl(null)
+        setSigningBid(null)
+        signingBidRef.current = null
+      }
+    }
+    window.addEventListener('message', handler)
+    return () => window.removeEventListener('message', handler)
+  }, [rfq.id])
 
   const date       = new Date(rfq.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
   const vendorList = rfq.vendor_names
@@ -244,6 +278,7 @@ function RFQRow({ rfq, onContinue }: { rfq: RFQRecord; onContinue: () => void })
   const handleAcceptProposal = async (bid: BidRecord) => {
     setLoadingSigning(true)
     setSigningBid(bid)
+    signingBidRef.current = bid
     try {
       const token = await getSessionToken()
       const { data: { user } } = await (await import('@/lib/supabase')).supabase.auth.getUser()
@@ -262,10 +297,12 @@ function RFQRow({ rfq, onContinue }: { rfq: RFQRecord; onContinue: () => void })
       } else {
         console.error('[accept proposal]', data.error)
         setSigningBid(null)
+        signingBidRef.current = null
       }
     } catch (err) {
       console.error('[accept proposal]', err)
       setSigningBid(null)
+      signingBidRef.current = null
     } finally {
       setLoadingSigning(false)
     }
@@ -436,8 +473,8 @@ function RFQRow({ rfq, onContinue }: { rfq: RFQRecord; onContinue: () => void })
               {vendorList.length > 0 && (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                   {vendorList.map((vendorName, i) => {
-                    const vendorStatusKey = Object.keys(rfq.vendor_statuses ?? {}).find(k => k.trim().toLowerCase() === vendorName.trim().toLowerCase())
-                    const vendorStatus = vendorStatusKey ? rfq.vendor_statuses![vendorStatusKey] : 'Pending'
+                    const vendorStatusKey = Object.keys(localVendorStatuses).find(k => k.trim().toLowerCase() === vendorName.trim().toLowerCase())
+                    const vendorStatus = vendorStatusKey ? localVendorStatuses[vendorStatusKey] : 'Pending'
                     const vsBg         = VENDOR_STATUS_STYLES[vendorStatus]?.bg ?? 'rgba(136,135,128,0.08)'
                     const vsColor      = VENDOR_STATUS_STYLES[vendorStatus]?.color ?? 'var(--ps-muted)'
                     const vendorBid    = bidMap[vendorName.trim().toLowerCase()]
@@ -449,9 +486,9 @@ function RFQRow({ rfq, onContinue }: { rfq: RFQRecord; onContinue: () => void })
                           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                             {vendorBid && !dealDone && (vendorStatus === 'Responded' || vendorStatus === 'Selected') && (
                               <button
-                                onClick={(e) => { e.stopPropagation(); handleAcceptProposal(vendorBid) }}
-                                disabled={loadingSigning && signingBid?.id === bidId}
-                                style={{ padding: '4px 12px', backgroundColor: loadingSigning && signingBid?.id === bidId ? 'rgba(29,158,117,0.4)' : 'var(--ps-teal)', color: 'white', border: 'none', borderRadius: 6, fontSize: 11, cursor: loadingSigning && signingBid?.id === bidId ? 'default' : 'pointer', fontFamily: 'inherit', fontWeight: 500 }}
+                                onClick={(e) => { e.stopPropagation(); if (!signingBid && !loadingSigning) handleAcceptProposal(vendorBid) }}
+                                disabled={loadingSigning || signingBid !== null}
+                                style={{ padding: '4px 12px', backgroundColor: (loadingSigning || signingBid !== null) ? 'rgba(29,158,117,0.4)' : 'var(--ps-teal)', color: 'white', border: 'none', borderRadius: 6, fontSize: 11, cursor: (loadingSigning || signingBid !== null) ? 'default' : 'pointer', fontFamily: 'inherit', fontWeight: 500 }}
                               >
                                 {loadingSigning && signingBid?.id === bidId ? 'Loading...' : 'Accept Proposal'}
                               </button>
@@ -626,7 +663,7 @@ function RFQRow({ rfq, onContinue }: { rfq: RFQRecord; onContinue: () => void })
         <div style={{ backgroundColor: 'var(--ps-surface)', borderRadius: 12, border: '0.5px solid var(--ps-border)', width: '90vw', maxWidth: 900, height: '85vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
           <div style={{ padding: '14px 20px', borderBottom: '0.5px solid var(--ps-border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             <span style={{ fontSize: 14, fontWeight: 500, color: 'var(--ps-white)' }}>Sign Proposal</span>
-            <button onClick={() => { setSigningUrl(null); setSigningBid(null) }} style={{ background: 'none', border: 'none', color: 'var(--ps-muted)', fontSize: 20, cursor: 'pointer', lineHeight: 1 }}>×</button>
+            <button onClick={() => { setSigningUrl(null); setSigningBid(null); signingBidRef.current = null }} style={{ background: 'none', border: 'none', color: 'var(--ps-muted)', fontSize: 20, cursor: 'pointer', lineHeight: 1 }}>×</button>
           </div>
           <iframe src={signingUrl} style={{ flex: 1, border: 'none', width: '100%' }} allow="camera" />
         </div>

@@ -43,17 +43,23 @@ async function getDocuSignToken(): Promise<string> {
 
 async function fetchProposalPdf(bidId: string): Promise<{ base64: string; name: string } | null> {
   try {
+    console.log('[docusign/sign] fetchProposalPdf bidId:', bidId)
     const base        = getBase()
     const record      = await base('Bids').find(bidId)
     const attachments = record.get('Proposal File') as { url: string; filename: string }[] | undefined
+    console.log('[docusign/sign] attachments found:', attachments?.length ?? 0)
     if (!attachments?.length) return null
 
     const att = attachments[0]
     const res = await fetch(att.url)
-    if (!res.ok) return null
+    if (!res.ok) {
+      console.warn('[docusign/sign] attachment fetch failed:', res.status)
+      return null
+    }
     const buf = await res.arrayBuffer()
     return { base64: Buffer.from(buf).toString('base64'), name: att.filename }
-  } catch {
+  } catch (err) {
+    console.error('[docusign/sign] fetchProposalPdf error:', err)
     return null
   }
 }
