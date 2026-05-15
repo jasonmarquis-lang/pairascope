@@ -143,20 +143,22 @@ export default function ScopeEditorPage() {
       <main style={{ paddingTop: 56, height: '100vh', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
         <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
 
-          {/* Left panel: scope textarea + Recommend Vendors button */}
+          {/* Left panel: header + scope textarea */}
           <div style={{ width: '50%', flexShrink: 0, display: 'flex', flexDirection: 'column', padding: '32px 24px', borderRight: '0.5px solid var(--ps-border)', overflow: 'hidden' }}>
-            <div style={{ marginBottom: 20 }}>
-              <button onClick={() => router.back()} style={{ fontSize: 13, color: 'var(--ps-muted)', background: 'none', border: 'none', cursor: 'pointer', padding: 0, marginBottom: 14, fontFamily: 'inherit' }}>
-                Back
-              </button>
-              <h1 style={{ fontSize: '1.5rem', fontWeight: 400, color: 'var(--ps-white)', margin: '0 0 4px' }}>Scope Editor</h1>
-              <p style={{ fontSize: 13, color: 'var(--ps-muted)', margin: 0 }}>{projectName}</p>
+
+            {/* ← Back */}
+            <button onClick={() => router.back()} style={{ fontSize: 13, color: 'var(--ps-muted)', background: 'none', border: 'none', cursor: 'pointer', padding: 0, marginBottom: 14, fontFamily: 'inherit', alignSelf: 'flex-start' }}>
+              ← Back
+            </button>
+
+            {/* Scope Editor + project name on same line, same style, project name right-aligned */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 20 }}>
+              <h1 style={{ fontSize: '1.5rem', fontWeight: 400, color: 'var(--ps-white)', margin: 0 }}>Scope Editor</h1>
+              <span style={{ fontSize: '1.5rem', fontWeight: 400, color: 'var(--ps-white)' }}>{projectName}</span>
             </div>
 
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-              <p style={{ fontSize: 11, color: 'var(--ps-muted)', textTransform: 'uppercase', letterSpacing: '0.07em', margin: 0 }}>Scope document</p>
-              <p style={{ fontSize: 11, color: 'var(--ps-muted)', margin: 0 }}>Edit before sending to vendors</p>
-            </div>
+            {/* Edit hint — no "Scope document" label */}
+            <p style={{ fontSize: 12, color: 'var(--ps-muted)', margin: '0 0 8px' }}>Edit before sending to vendors</p>
 
             <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
               <textarea
@@ -179,19 +181,9 @@ export default function ScopeEditorPage() {
                 }}
               />
             </div>
-
-            <button
-              onClick={handleRecommendVendors}
-              disabled={loadingVendors || !scope.trim()}
-              style={{ marginTop: 16, width: '100%', padding: '14px 0', backgroundColor: loadingVendors ? 'rgba(29,158,117,0.4)' : 'var(--ps-teal)', color: 'white', border: 'none', borderRadius: 10, fontSize: 14, fontWeight: 500, cursor: loadingVendors || !scope.trim() ? 'default' : 'pointer', fontFamily: 'inherit' }}
-            >
-              {loadingVendors ? 'Matching vendors to your project...' : vendorsLoaded ? 'Re-run Matching →' : 'Recommend Vendors →'}
-            </button>
-
-            {error && !vendorsLoaded && <p style={{ fontSize: 12, color: '#E24B4A', marginTop: 8, marginBottom: 0 }}>{error}</p>}
           </div>
 
-          {/* Right panel: vendor cards + Send RFQ button */}
+          {/* Right panel: vendor cards */}
           <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
             {!vendorsLoaded && !loadingVendors && (
               <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -206,81 +198,98 @@ export default function ScopeEditorPage() {
             )}
 
             {vendorsLoaded && (
-              <>
-                <div style={{ flex: 1, overflowY: 'auto', padding: '32px 24px 16px' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-                    <p style={{ fontSize: 11, color: 'var(--ps-muted)', textTransform: 'uppercase', letterSpacing: '0.07em', margin: 0 }}>Recommended vendors</p>
-                    <p style={{ fontSize: 11, color: 'var(--ps-muted)', margin: 0 }}>{selectedVendors.size} of {vendors.length} selected</p>
-                  </div>
+              <div style={{ flex: 1, overflowY: 'auto', padding: '32px 24px 16px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+                  <p style={{ fontSize: 11, color: 'var(--ps-muted)', textTransform: 'uppercase', letterSpacing: '0.07em', margin: 0 }}>Recommended vendors</p>
+                  <p style={{ fontSize: 11, color: 'var(--ps-muted)', margin: 0 }}>{selectedVendors.size} of {vendors.length} selected</p>
+                </div>
 
-                  {vendors.length === 0 && (
-                    <p style={{ fontSize: 13, color: 'var(--ps-muted)' }}>No vendors matched. Check your Vendors table in Airtable.</p>
-                  )}
+                {vendors.length === 0 && (
+                  <p style={{ fontSize: 13, color: 'var(--ps-muted)' }}>No vendors matched. Check your Vendors table in Airtable.</p>
+                )}
 
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                    {vendors.map((vendor) => {
-                      const checked = selectedVendors.has(vendor.id)
-                      return (
-                        <div
-                          key={vendor.id}
-                          onClick={() => toggleVendor(vendor.id)}
-                          style={{ display: 'flex', alignItems: 'flex-start', gap: 14, padding: '16px 18px', backgroundColor: checked ? 'rgba(29,158,117,0.06)' : 'var(--ps-surface)', border: '0.5px solid ' + (checked ? 'rgba(29,158,117,0.35)' : 'var(--ps-border)'), borderRadius: 10, cursor: 'pointer', transition: 'all 0.15s ease' }}
-                        >
-                          <div style={{ width: 18, height: 18, borderRadius: 4, flexShrink: 0, marginTop: 3, border: '1.5px solid ' + (checked ? 'var(--ps-teal)' : 'rgba(255,255,255,0.2)'), backgroundColor: checked ? 'var(--ps-teal)' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.15s ease' }}>
-                            {checked && (
-                              <svg width="10" height="8" viewBox="0 0 10 8" fill="none">
-                                <path d="M1 4L3.5 6.5L9 1" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                              </svg>
-                            )}
-                          </div>
-                          <div style={{ flex: 1, minWidth: 0 }}>
-                            <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, marginBottom: 6 }}>
-                              <div>
-                                <span style={{ fontSize: 14, fontWeight: 500, color: 'var(--ps-white)', display: 'block', marginBottom: 3 }}>{vendor.name}</span>
-                                {(vendor.city || vendor.state || vendor.country) && (
-                                  <span style={{ fontSize: 12, color: 'var(--ps-muted)' }}>
-                                    {[vendor.city, vendor.state, vendor.country].filter(Boolean).join(', ')}
-                                  </span>
-                                )}
-                              </div>
-                            </div>
-                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, marginBottom: 8 }}>
-                              {vendor.primaryServices.map((s, i) => (
-                                <span key={i} style={{ fontSize: 11, color: 'var(--ps-teal)', backgroundColor: 'rgba(29,158,117,0.1)', padding: '2px 8px', borderRadius: 20 }}>{s}</span>
-                              ))}
-                              {vendor.secondaryServices.map((s, i) => (
-                                <span key={i} style={{ fontSize: 11, color: 'var(--ps-muted)', backgroundColor: 'var(--ps-bg)', border: '0.5px solid var(--ps-border)', padding: '2px 8px', borderRadius: 20 }}>{s}</span>
-                              ))}
-                            </div>
-                            {vendor.reasoning && (
-                              <p style={{ fontSize: 13, color: 'var(--ps-teal)', margin: '0 0 6px', lineHeight: 1.6, fontStyle: 'italic', opacity: 0.9 }}>{vendor.reasoning}</p>
-                            )}
-                            {vendor.shortBio && (
-                              <p style={{ fontSize: 13, color: 'var(--ps-muted)', margin: 0, lineHeight: 1.6 }}>{vendor.shortBio}</p>
-                            )}
-                          </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                  {vendors.map((vendor) => {
+                    const checked = selectedVendors.has(vendor.id)
+                    return (
+                      <div
+                        key={vendor.id}
+                        onClick={() => toggleVendor(vendor.id)}
+                        style={{ display: 'flex', alignItems: 'flex-start', gap: 14, padding: '16px 18px', backgroundColor: checked ? 'rgba(29,158,117,0.06)' : 'var(--ps-surface)', border: '0.5px solid ' + (checked ? 'rgba(29,158,117,0.35)' : 'var(--ps-border)'), borderRadius: 10, cursor: 'pointer', transition: 'all 0.15s ease' }}
+                      >
+                        <div style={{ width: 18, height: 18, borderRadius: 4, flexShrink: 0, marginTop: 3, border: '1.5px solid ' + (checked ? 'var(--ps-teal)' : 'rgba(255,255,255,0.2)'), backgroundColor: checked ? 'var(--ps-teal)' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.15s ease' }}>
+                          {checked && (
+                            <svg width="10" height="8" viewBox="0 0 10 8" fill="none">
+                              <path d="M1 4L3.5 6.5L9 1" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                            </svg>
+                          )}
                         </div>
-                      )
-                    })}
-                  </div>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ marginBottom: 6 }}>
+                            <span style={{ fontSize: 14, fontWeight: 500, color: 'var(--ps-white)', display: 'block', marginBottom: 3 }}>{vendor.name}</span>
+                            {(vendor.city || vendor.state || vendor.country) && (
+                              <span style={{ fontSize: 12, color: 'var(--ps-muted)' }}>
+                                {[vendor.city, vendor.state, vendor.country].filter(Boolean).join(', ')}
+                              </span>
+                            )}
+                          </div>
+                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, marginBottom: 8 }}>
+                            {vendor.primaryServices.map((s, i) => (
+                              <span key={i} style={{ fontSize: 11, color: 'var(--ps-teal)', backgroundColor: 'rgba(29,158,117,0.1)', padding: '2px 8px', borderRadius: 20 }}>{s}</span>
+                            ))}
+                            {vendor.secondaryServices.map((s, i) => (
+                              <span key={i} style={{ fontSize: 11, color: 'var(--ps-muted)', backgroundColor: 'var(--ps-bg)', border: '0.5px solid var(--ps-border)', padding: '2px 8px', borderRadius: 20 }}>{s}</span>
+                            ))}
+                          </div>
+                          {(vendor.reasoning || vendor.shortBio) && (
+                            <div style={{ display: 'flex', gap: 12 }}>
+                              {vendor.reasoning && (
+                                <p style={{ fontSize: 13, color: 'var(--ps-teal)', margin: 0, lineHeight: 1.6, fontStyle: 'italic', opacity: 0.9, flex: 1 }}>{vendor.reasoning}</p>
+                              )}
+                              {vendor.shortBio && (
+                                <p style={{ fontSize: 13, color: 'var(--ps-muted)', margin: 0, lineHeight: 1.6, flex: 1 }}>{vendor.shortBio}</p>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )
+                  })}
                 </div>
-
-                {/* Send RFQ button pinned to bottom of right panel */}
-                <div style={{ padding: '16px 24px', borderTop: '0.5px solid var(--ps-border)' }}>
-                  {error && <p style={{ fontSize: 12, color: '#E24B4A', marginBottom: 10, marginTop: 0 }}>{error}</p>}
-                  <button
-                    onClick={handleSend}
-                    disabled={sending || selectedVendors.size === 0}
-                    style={{ width: '100%', padding: '14px 0', backgroundColor: sending || selectedVendors.size === 0 ? 'rgba(29,158,117,0.4)' : 'var(--ps-teal)', color: 'white', border: 'none', borderRadius: 10, fontSize: 14, fontWeight: 500, cursor: sending || selectedVendors.size === 0 ? 'default' : 'pointer', fontFamily: 'inherit' }}
-                  >
-                    {sending ? 'Sending...' : 'Send RFQ to ' + selectedVendors.size + ' vendor' + (selectedVendors.size !== 1 ? 's' : '') + ' →'}
-                  </button>
-                </div>
-              </>
+              </div>
             )}
           </div>
 
         </div>
+
+        {/* Shared bottom bar: Re-run Matching (left, 50% panel) | Send RFQ (right panel) */}
+        <div style={{ display: 'flex', borderTop: '0.5px solid var(--ps-border)', flexShrink: 0 }}>
+          {/* Left side — matches left panel width */}
+          <div style={{ width: '50%', padding: '16px 24px', borderRight: '0.5px solid var(--ps-border)' }}>
+            {error && !vendorsLoaded && <p style={{ fontSize: 12, color: '#E24B4A', margin: '0 0 8px' }}>{error}</p>}
+            <button
+              onClick={handleRecommendVendors}
+              disabled={loadingVendors || !scope.trim()}
+              style={{ width: '50%', padding: '14px 0', backgroundColor: loadingVendors ? 'rgba(29,158,117,0.4)' : 'var(--ps-teal)', color: 'white', border: 'none', borderRadius: 10, fontSize: 14, fontWeight: 500, cursor: loadingVendors || !scope.trim() ? 'default' : 'pointer', fontFamily: 'inherit' }}
+            >
+              {loadingVendors ? 'Matching...' : vendorsLoaded ? 'Re-run Matching →' : 'Recommend Vendors →'}
+            </button>
+          </div>
+          {/* Right side — matches right panel width */}
+          <div style={{ flex: 1, padding: '16px 24px' }}>
+            {error && vendorsLoaded && <p style={{ fontSize: 12, color: '#E24B4A', margin: '0 0 8px' }}>{error}</p>}
+            {vendorsLoaded && (
+              <button
+                onClick={handleSend}
+                disabled={sending || selectedVendors.size === 0}
+                style={{ width: '100%', padding: '14px 0', backgroundColor: sending || selectedVendors.size === 0 ? 'rgba(29,158,117,0.4)' : 'var(--ps-teal)', color: 'white', border: 'none', borderRadius: 10, fontSize: 14, fontWeight: 500, cursor: sending || selectedVendors.size === 0 ? 'default' : 'pointer', fontFamily: 'inherit' }}
+              >
+                {sending ? 'Sending...' : 'Send RFQ to ' + selectedVendors.size + ' vendor' + (selectedVendors.size !== 1 ? 's' : '') + ' →'}
+              </button>
+            )}
+          </div>
+        </div>
+
       </main>
     </>
   )
