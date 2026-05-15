@@ -48,7 +48,7 @@ export default function VendorPage() {
     <>
       <Nav />
       <main style={{ paddingTop: 56, minHeight: '100vh' }}>
-        <div style={{ maxWidth: 900, margin: '0 auto', padding: '48px 24px' }}>
+        <div style={{ margin: '0 auto', padding: '48px 24px' }}>
 
           <div style={{ marginBottom: 36 }}>
             <h1 style={{ fontSize: '1.75rem', fontWeight: 400, color: 'var(--ps-white)', margin: '0 0 8px' }}>
