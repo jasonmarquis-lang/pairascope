@@ -20,6 +20,7 @@ interface BidRecord {
   status:             string
   created_at:         string
   proposal_file_name: string | null
+  airtable_bid_id:    string | null
 }
 
 interface ScopeVersion {
@@ -189,6 +190,7 @@ function RFQRow({ rfq, onContinue }: { rfq: RFQRecord; onContinue: () => void })
   const [signingBid,    setSigningBid]    = useState<BidRecord | null>(null)
   const [signingUrl,    setSigningUrl]    = useState<string | null>(null)
   const [loadingSigning, setLoadingSigning] = useState(false)
+  const [pdfBid,        setPdfBid]        = useState<BidRecord | null>(null)
 
   const date       = new Date(rfq.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
   const vendorList = rfq.vendor_names
@@ -248,7 +250,7 @@ function RFQRow({ rfq, onContinue }: { rfq: RFQRecord; onContinue: () => void })
         method:  'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
         body: JSON.stringify({
-          bidId:       bid.id,
+          bidId:       bid.airtable_bid_id ?? bid.id,
           signerName:  user?.user_metadata?.full_name ?? user?.email ?? 'Artist',
           signerEmail: user?.email ?? '',
         }),
@@ -527,6 +529,18 @@ function RFQRow({ rfq, onContinue }: { rfq: RFQRecord; onContinue: () => void })
                                 <p style={{ fontSize: 12, color: 'var(--ps-text)', margin: 0, lineHeight: 1.5 }}>{vendorBid.assumptions}</p>
                               </div>
                             )}
+                            {vendorBid.proposal_file_name && (
+                              <div style={{ gridColumn: '1 / -1' }}>
+                                <p style={{ fontSize: 10, color: 'var(--ps-muted)', textTransform: 'uppercase', letterSpacing: '0.07em', margin: '0 0 6px' }}>Proposal</p>
+                                <button
+                                  onClick={(e) => { e.stopPropagation(); setPdfBid(vendorBid) }}
+                                  style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '7px 12px', backgroundColor: 'var(--ps-surface)', border: '0.5px solid var(--ps-border)', borderRadius: 8, cursor: 'pointer', fontFamily: 'inherit' }}
+                                >
+                                  <span style={{ fontSize: 16, lineHeight: 1 }}>📄</span>
+                                  <span style={{ fontSize: 12, color: 'var(--ps-text)' }}>{vendorBid.proposal_file_name}</span>
+                                </button>
+                              </div>
+                            )}
                           </div>
                         )}
                         {(rfq.last_meeting_date || rfq.action_items || rfq.what_changed) && (
@@ -570,6 +584,27 @@ function RFQRow({ rfq, onContinue }: { rfq: RFQRecord; onContinue: () => void })
         </div>
       )}
     </div>
+    {/* Proposal PDF viewer */}
+    {pdfBid && (
+      <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.7)', zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div style={{ backgroundColor: 'var(--ps-surface)', borderRadius: 12, border: '0.5px solid var(--ps-border)', width: '90vw', maxWidth: 900, height: '85vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+          <div style={{ padding: '14px 20px', borderBottom: '0.5px solid var(--ps-border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <span style={{ fontSize: 14, fontWeight: 500, color: 'var(--ps-white)' }}>{pdfBid.proposal_file_name}</span>
+            <button onClick={() => setPdfBid(null)} style={{ background: 'none', border: 'none', color: 'var(--ps-muted)', fontSize: 20, cursor: 'pointer', lineHeight: 1 }}>×</button>
+          </div>
+          {pdfBid.airtable_bid_id ? (
+            <iframe
+              src={`/api/bids/proposal?bidId=${pdfBid.airtable_bid_id}`}
+              style={{ flex: 1, border: 'none', width: '100%' }}
+            />
+          ) : (
+            <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--ps-muted)', fontSize: 13 }}>
+              File not available for preview.
+            </div>
+          )}
+        </div>
+      </div>
+    )}
     {/* DocuSign signing popover */}
     {signingUrl && (
       <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.7)', zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>

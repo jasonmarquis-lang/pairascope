@@ -42,16 +42,20 @@ async function getDocuSignToken(): Promise<string> {
 }
 
 async function fetchProposalPdf(bidId: string): Promise<{ base64: string; name: string } | null> {
-  const base   = getBase()
-  const record = await base('Bids').find(bidId)
-  const attachments = record.get('Proposal File') as { url: string; filename: string }[] | undefined
-  if (!attachments?.length) return null
+  try {
+    const base        = getBase()
+    const record      = await base('Bids').find(bidId)
+    const attachments = record.get('Proposal File') as { url: string; filename: string }[] | undefined
+    if (!attachments?.length) return null
 
-  const att = attachments[0]
-  const res = await fetch(att.url)
-  if (!res.ok) return null
-  const buf = await res.arrayBuffer()
-  return { base64: Buffer.from(buf).toString('base64'), name: att.filename }
+    const att = attachments[0]
+    const res = await fetch(att.url)
+    if (!res.ok) return null
+    const buf = await res.arrayBuffer()
+    return { base64: Buffer.from(buf).toString('base64'), name: att.filename }
+  } catch {
+    return null
+  }
 }
 
 export async function POST(req: NextRequest) {
