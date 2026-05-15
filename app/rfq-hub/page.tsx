@@ -136,31 +136,14 @@ export default function RFQHubPage() {
     router.push('/?conversationId=' + rfq.conversation_id)
   }
 
-  const total    = rfqs.length
-  const sent     = rfqs.filter((r) => r.status === 'Sent').length
-  const received = rfqs.reduce((acc, r) => acc + Object.values(r.vendor_statuses ?? {}).filter((s) => s === 'Responded' || s === 'Selected').length, 0)
-
   return (
     <>
       <Nav />
       <main style={{ paddingTop: 56, minHeight: '100vh' }}>
-        <div style={{ maxWidth: 900, margin: '0 auto', padding: '48px 24px' }}>
+        <div style={{ margin: '0 auto', padding: '48px 24px' }}>
           <div style={{ marginBottom: 36 }}>
             <h1 style={{ fontSize: '1.75rem', fontWeight: 400, color: 'var(--ps-white)', margin: '0 0 8px' }}>My RFQs</h1>
             <p style={{ fontSize: 15, color: 'var(--ps-muted)', margin: 0 }}>Track your vendor outreach and proposal status.</p>
-          </div>
-
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 12, marginBottom: 32 }}>
-            {[
-              { label: 'Total RFQs',        value: total    },
-              { label: 'Awaiting responses', value: sent     },
-              { label: 'Estimates received', value: received },
-            ].map(({ label, value }) => (
-              <div key={label} style={{ backgroundColor: 'var(--ps-surface)', border: '0.5px solid var(--ps-border)', borderRadius: 10, padding: '16px 20px' }}>
-                <p style={{ fontSize: 11, color: 'var(--ps-muted)', textTransform: 'uppercase', letterSpacing: '0.07em', margin: '0 0 6px' }}>{label}</p>
-                <p style={{ fontSize: 28, fontWeight: 500, color: 'var(--ps-white)', margin: 0 }}>{value}</p>
-              </div>
-            ))}
           </div>
 
           {isLoading && <div style={{ color: 'var(--ps-muted)', textAlign: 'center', padding: 60 }}>Loading...</div>}
@@ -354,7 +337,6 @@ function RFQRow({ rfq, onContinue }: { rfq: RFQRecord; onContinue: () => void })
         <div style={{ display: 'flex', alignItems: 'center', gap: 16, flexShrink: 0 }}>
           <span style={{ fontSize: 12, color: 'var(--ps-muted)' }}>{rfq.vendors_contacted} vendor{rfq.vendors_contacted !== 1 ? 's' : ''}</span>
           <span style={{ fontSize: 12, color: 'var(--ps-muted)' }}>{date}</span>
-          <span style={{ fontSize: 11, color: 'var(--ps-muted)', fontFamily: 'monospace' }}>{rfq.project_id}</span>
           <span style={{ color: 'var(--ps-muted)', fontSize: 12 }}>{expanded ? '▴' : '▾'}</span>
         </div>
       </div>
