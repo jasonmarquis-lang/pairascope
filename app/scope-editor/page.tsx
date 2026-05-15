@@ -143,47 +143,70 @@ export default function ScopeEditorPage() {
       <main style={{ paddingTop: 56, height: '100vh', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
         <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
 
-          {/* Left panel: header + scope textarea */}
-          <div style={{ width: '50%', flexShrink: 0, display: 'flex', flexDirection: 'column', padding: '32px 24px', borderRight: '0.5px solid var(--ps-border)', overflow: 'hidden' }}>
+          {/* ── Left panel ── */}
+          <div style={{ width: '50%', flexShrink: 0, display: 'flex', flexDirection: 'column', borderRight: '0.5px solid var(--ps-border)', overflow: 'hidden' }}>
 
-            {/* ← Back */}
-            <button onClick={() => router.back()} style={{ fontSize: 13, color: 'var(--ps-muted)', background: 'none', border: 'none', cursor: 'pointer', padding: 0, marginBottom: 14, fontFamily: 'inherit', alignSelf: 'flex-start' }}>
-              ← Back
-            </button>
+            {/* Scrollable content area */}
+            <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column', padding: '32px 24px 0' }}>
 
-            {/* Scope Editor + project name on same line, same style, project name right-aligned */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 20 }}>
-              <h1 style={{ fontSize: '1.5rem', fontWeight: 400, color: 'var(--ps-white)', margin: 0 }}>Scope Editor</h1>
-              <span style={{ fontSize: '1.5rem', fontWeight: 400, color: 'var(--ps-white)' }}>{'“'}{projectName}{'”'}</span>
-            </div>
+              <button onClick={() => router.back()} style={{ fontSize: 13, color: 'var(--ps-muted)', background: 'none', border: 'none', cursor: 'pointer', padding: 0, marginBottom: 14, fontFamily: 'inherit', alignSelf: 'flex-start' }}>
+                ← Back
+              </button>
 
-            {/* Edit hint — no "Scope document" label */}
-            <p style={{ fontSize: 12, color: 'var(--ps-muted)', margin: '0 0 8px' }}>Edit before sending to vendors</p>
-
-            <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-              <textarea
-                value={scope}
-                onChange={(e) => setScope(e.target.value)}
+              {/* Project title as editable input — styled like the old heading */}
+              <input
+                type="text"
+                value={projectName}
+                onChange={(e) => setProjectName(e.target.value)}
+                onFocus={(e) => { e.currentTarget.style.borderBottomColor = 'rgba(255,255,255,0.2)' }}
+                onBlur={(e)  => { e.currentTarget.style.borderBottomColor = 'transparent' }}
                 style={{
-                  flex: 1,
-                  backgroundColor: 'var(--ps-surface)',
-                  border: '0.5px solid var(--ps-border)',
-                  borderRadius: 10,
-                  padding: '16px 18px',
-                  fontSize: 13,
-                  color: 'var(--ps-text)',
-                  lineHeight: 1.8,
-                  fontFamily: 'inherit',
+                  fontSize: '1.5rem',
+                  fontWeight: 400,
+                  color: 'var(--ps-white)',
+                  background: 'none',
+                  border: 'none',
+                  borderBottom: '1px solid transparent',
                   outline: 'none',
-                  resize: 'none',
                   width: '100%',
-                  minHeight: 0,
+                  padding: 0,
+                  fontFamily: 'inherit',
+                  marginBottom: 20,
+                  transition: 'border-color 0.15s ease',
                 }}
               />
+
+              <p style={{ fontSize: 13, color: 'var(--ps-muted)', margin: '0 0 8px' }}>
+                Review and edit the scope before sending to vendors
+              </p>
+
+              <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+                <textarea
+                  value={scope}
+                  onChange={(e) => setScope(e.target.value)}
+                  style={{
+                    flex: 1,
+                    backgroundColor: 'var(--ps-surface)',
+                    border: '0.5px solid var(--ps-border)',
+                    borderRadius: 10,
+                    padding: '16px 18px',
+                    fontSize: 13,
+                    color: 'var(--ps-text)',
+                    lineHeight: 1.8,
+                    fontFamily: 'inherit',
+                    outline: 'none',
+                    resize: 'none',
+                    width: '100%',
+                    minHeight: 0,
+                  }}
+                />
+              </div>
+
+              {error && !vendorsLoaded && <p style={{ fontSize: 12, color: '#E24B4A', margin: '10px 0 0' }}>{error}</p>}
             </div>
 
-            {error && !vendorsLoaded && <p style={{ fontSize: 12, color: '#E24B4A', margin: '12px 0 0' }}>{error}</p>}
-            <div style={{ paddingTop: 16, display: 'flex', justifyContent: 'center' }}>
+            {/* Pinned button — always at the bottom of the left panel */}
+            <div style={{ padding: '16px 24px', flexShrink: 0, display: 'flex', justifyContent: 'center' }}>
               <button
                 onClick={handleRecommendVendors}
                 disabled={loadingVendors || !scope.trim()}
@@ -194,83 +217,90 @@ export default function ScopeEditorPage() {
             </div>
           </div>
 
-          {/* Right panel: vendor cards */}
+          {/* ── Right panel ── */}
           <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-            {!vendorsLoaded && !loadingVendors && (
-              <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <p style={{ fontSize: 13, color: 'var(--ps-muted)' }}>Recommend vendors to see matches here</p>
-              </div>
-            )}
 
-            {loadingVendors && (
-              <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <p style={{ fontSize: 13, color: 'var(--ps-muted)' }}>Matching vendors to your project...</p>
-              </div>
-            )}
-
-            {vendorsLoaded && (
-              <>
-              <div style={{ flex: 1, overflowY: 'auto', padding: '32px 24px 16px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-                  <p style={{ fontSize: 11, color: 'var(--ps-muted)', textTransform: 'uppercase', letterSpacing: '0.07em', margin: 0 }}>Recommended vendors</p>
-                  <p style={{ fontSize: 11, color: 'var(--ps-muted)', margin: 0 }}>{selectedVendors.size} of {vendors.length} selected</p>
+            {/* Scrollable content area */}
+            <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+              {!vendorsLoaded && !loadingVendors && (
+                <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <p style={{ fontSize: 13, color: 'var(--ps-muted)' }}>Recommend vendors to see matches here</p>
                 </div>
+              )}
 
-                {vendors.length === 0 && (
-                  <p style={{ fontSize: 13, color: 'var(--ps-muted)' }}>No vendors matched. Check your Vendors table in Airtable.</p>
-                )}
+              {loadingVendors && (
+                <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <p style={{ fontSize: 13, color: 'var(--ps-muted)' }}>Matching vendors to your project...</p>
+                </div>
+              )}
 
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                  {vendors.map((vendor) => {
-                    const checked = selectedVendors.has(vendor.id)
-                    return (
-                      <div
-                        key={vendor.id}
-                        onClick={() => toggleVendor(vendor.id)}
-                        style={{ display: 'flex', alignItems: 'flex-start', gap: 14, padding: '16px 18px', backgroundColor: checked ? 'rgba(29,158,117,0.06)' : 'var(--ps-surface)', border: '0.5px solid ' + (checked ? 'rgba(29,158,117,0.35)' : 'var(--ps-border)'), borderRadius: 10, cursor: 'pointer', transition: 'all 0.15s ease' }}
-                      >
-                        <div style={{ width: 18, height: 18, borderRadius: 4, flexShrink: 0, marginTop: 3, border: '1.5px solid ' + (checked ? 'var(--ps-teal)' : 'rgba(255,255,255,0.2)'), backgroundColor: checked ? 'var(--ps-teal)' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.15s ease' }}>
-                          {checked && (
-                            <svg width="10" height="8" viewBox="0 0 10 8" fill="none">
-                              <path d="M1 4L3.5 6.5L9 1" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                            </svg>
-                          )}
-                        </div>
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                          <div style={{ marginBottom: 6 }}>
-                            <span style={{ fontSize: 14, fontWeight: 500, color: 'var(--ps-white)', display: 'block', marginBottom: 3 }}>{vendor.name}</span>
-                            {(vendor.city || vendor.state || vendor.country) && (
-                              <span style={{ fontSize: 12, color: 'var(--ps-muted)' }}>
-                                {[vendor.city, vendor.state, vendor.country].filter(Boolean).join(', ')}
-                              </span>
+              {vendorsLoaded && (
+                <div style={{ flex: 1, overflowY: 'auto', padding: '32px 24px 0' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+                    <p style={{ fontSize: 11, color: 'var(--ps-muted)', textTransform: 'uppercase', letterSpacing: '0.07em', margin: 0 }}>Recommended vendors</p>
+                    <p style={{ fontSize: 11, color: 'var(--ps-muted)', margin: 0 }}>{selectedVendors.size} of {vendors.length} selected</p>
+                  </div>
+
+                  {vendors.length === 0 && (
+                    <p style={{ fontSize: 13, color: 'var(--ps-muted)' }}>No vendors matched. Check your Vendors table in Airtable.</p>
+                  )}
+
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 10, paddingBottom: 16 }}>
+                    {vendors.map((vendor) => {
+                      const checked  = selectedVendors.has(vendor.id)
+                      const location = [vendor.city, vendor.state].filter(Boolean).join(', ')
+                      return (
+                        <div
+                          key={vendor.id}
+                          onClick={() => toggleVendor(vendor.id)}
+                          style={{ display: 'flex', alignItems: 'flex-start', gap: 14, padding: '16px 18px', backgroundColor: checked ? 'rgba(29,158,117,0.06)' : 'var(--ps-surface)', border: '0.5px solid ' + (checked ? 'rgba(29,158,117,0.35)' : 'var(--ps-border)'), borderRadius: 10, cursor: 'pointer', transition: 'all 0.15s ease' }}
+                        >
+                          <div style={{ width: 18, height: 18, borderRadius: 4, flexShrink: 0, marginTop: 3, border: '1.5px solid ' + (checked ? 'var(--ps-teal)' : 'rgba(255,255,255,0.2)'), backgroundColor: checked ? 'var(--ps-teal)' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.15s ease' }}>
+                            {checked && (
+                              <svg width="10" height="8" viewBox="0 0 10 8" fill="none">
+                                <path d="M1 4L3.5 6.5L9 1" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                              </svg>
                             )}
                           </div>
-                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, marginBottom: 8 }}>
-                            {vendor.primaryServices.map((s, i) => (
-                              <span key={i} style={{ fontSize: 11, color: 'var(--ps-teal)', backgroundColor: 'rgba(29,158,117,0.1)', padding: '2px 8px', borderRadius: 20 }}>{s}</span>
-                            ))}
-                            {vendor.secondaryServices.map((s, i) => (
-                              <span key={i} style={{ fontSize: 11, color: 'var(--ps-muted)', backgroundColor: 'rgba(136,135,128,0.12)', padding: '2px 8px', borderRadius: 20 }}>{s}</span>
-                            ))}
-                          </div>
-                          {(vendor.reasoning || vendor.shortBio) && (
-                            <div style={{ display: 'flex', gap: 12 }}>
-                              {vendor.reasoning && (
-                                <p style={{ fontSize: 13, color: 'var(--ps-teal)', margin: 0, lineHeight: 1.6, fontStyle: 'italic', opacity: 0.9, flex: 1 }}>{vendor.reasoning}</p>
-                              )}
-                              {vendor.shortBio && (
-                                <p style={{ fontSize: 13, color: 'var(--ps-muted)', margin: 0, lineHeight: 1.6, flex: 1 }}>{vendor.shortBio}</p>
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            {/* Vendor name left, city/state right in orange */}
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 6 }}>
+                              <span style={{ fontSize: 14, fontWeight: 500, color: 'var(--ps-white)' }}>{vendor.name}</span>
+                              {location && (
+                                <span style={{ fontSize: 12, color: '#EF9F27', flexShrink: 0, marginLeft: 10 }}>{location}</span>
                               )}
                             </div>
-                          )}
+                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, marginBottom: 8 }}>
+                              {vendor.primaryServices.map((s, i) => (
+                                <span key={i} style={{ fontSize: 11, color: 'var(--ps-teal)', backgroundColor: 'rgba(29,158,117,0.1)', padding: '2px 8px', borderRadius: 20 }}>{s}</span>
+                              ))}
+                              {vendor.secondaryServices.map((s, i) => (
+                                <span key={i} style={{ fontSize: 11, color: 'var(--ps-muted)', backgroundColor: 'rgba(136,135,128,0.12)', padding: '2px 8px', borderRadius: 20 }}>{s}</span>
+                              ))}
+                            </div>
+                            {(vendor.reasoning || vendor.shortBio) && (
+                              <div style={{ display: 'flex', gap: 12 }}>
+                                {vendor.reasoning && (
+                                  <p style={{ fontSize: 13, color: 'var(--ps-teal)', margin: 0, lineHeight: 1.6, fontStyle: 'italic', opacity: 0.9, flex: 1 }}>{vendor.reasoning}</p>
+                                )}
+                                {vendor.shortBio && (
+                                  <p style={{ fontSize: 13, color: 'var(--ps-muted)', margin: 0, lineHeight: 1.6, flex: 1 }}>{vendor.shortBio}</p>
+                                )}
+                              </div>
+                            )}
+                          </div>
                         </div>
-                      </div>
-                    )
-                  })}
+                      )
+                    })}
+                  </div>
                 </div>
-              </div>
-              <div style={{ padding: '16px 24px', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                {error && vendorsLoaded && <p style={{ fontSize: 12, color: '#E24B4A', margin: '0 0 8px', alignSelf: 'stretch' }}>{error}</p>}
+              )}
+            </div>
+
+            {/* Pinned button — always at the bottom of the right panel when vendors are loaded */}
+            {vendorsLoaded && (
+              <div style={{ padding: '16px 24px', flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                {error && <p style={{ fontSize: 12, color: '#E24B4A', margin: '0 0 8px', alignSelf: 'stretch' }}>{error}</p>}
                 <button
                   onClick={handleSend}
                   disabled={sending || selectedVendors.size === 0}
@@ -279,7 +309,6 @@ export default function ScopeEditorPage() {
                   {sending ? 'Sending...' : 'Send RFQ to ' + selectedVendors.size + ' vendor' + (selectedVendors.size !== 1 ? 's' : '') + ' →'}
                 </button>
               </div>
-              </>
             )}
           </div>
 
